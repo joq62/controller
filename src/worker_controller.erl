@@ -2,11 +2,12 @@
 %%% @author c50 <joq62@c50>
 %%% @copyright (C) 2023, c50
 %%% @doc
-%%% 
+%%% Workers nodename convention ApplicationId_UniqueNum_cookie 
+%%% UniqueNum=erlang:system_time(microsecond)
 %%% @end
 %%% Created : 18 Apr 2023 by c50 <joq62@c50>
 %%%-------------------------------------------------------------------
--module(controller). 
+-module(worker_controller).  
  
 -behaviour(gen_server).
 %%--------------------------------------------------------------------
@@ -17,16 +18,14 @@
 -include("log.api").
 
 -include("controller.hrl").
--include("controller.resource_discovery").
-
--include("specs.hrl").
 
 
 
 
 %% API
 -export([
-	 new_deployment/1
+	 create_worker/1,
+	 delete_worker/1
 %	 set_wanted_stated/
 %	 delete_cluster/1, 	
 %	 deploy_application/2, 
@@ -71,9 +70,7 @@
 -define(SERVER, ?MODULE).
 		     
 -record(state, {
-		wanted_state,
-		deployment_id,
-	        deployments
+		worker_info        
 	       }).
 
 %%%===================================================================
@@ -81,73 +78,29 @@
 %%%===================================================================
 %%--------------------------------------------------------------------
 %% @doc
-%% Checks and returns all running applications on all nodes on the
-%% cluster  
+%% Starts new worker vm. It also starts log and resource discovery  
 %% 
 %% @end
 %%--------------------------------------------------------------------
--spec new_deployment(DeploymentId :: string()) -> 
+-spec create_worker(ApplicationId :: string()) -> 
+	  {ok,Node :: node()} | {error, Error :: term()}.
+create_worker(ApplicationId) ->
+    gen_server:call(?SERVER,{create_worker,ApplicationId},infinity).
+
+
+%%--------------------------------------------------------------------
+%% @doc
+%% stops worker vm node Node.  
+%% 
+%% @end
+%%--------------------------------------------------------------------
+-spec delete_worker(Node :: node()) -> 
 	  ok | {error, Error :: term()}.
-new_deployment(DeploymentId) ->
-    gen_server:call(?SERVER,{new_deployment,DeploymentId},infinity).
+delete_worker(Node) ->
+    gen_server:call(?SERVER,{delete_worker,Node},infinity).
 
 
 
-%%--------------------------------------------------------------------
-%% @doc
-%% Checks and returns all running applications on all nodes on the
-%% cluster  
-%% 
-%% @end
-%%--------------------------------------------------------------------
--spec which_applications() -> 
-	  ApplicationsRunning::term() | {error, Error :: term()}.
-which_applications() ->
-    gen_server:call(?SERVER,{which_applications},infinity).
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Deploy an application ApplicationId on host HostName  
-%% 
-%% @end
-%%--------------------------------------------------------------------
--spec deploy_application(ApplicationId::string(),HostName::string()) -> 
-	  {ok,WorkerNode::node()} | {error, Error :: term()}.
-deploy_application(ApplicationId,HostName) ->
-    gen_server:call(?SERVER,{deploy_application,ApplicationId,HostName},infinity).
-%%--------------------------------------------------------------------
-%% @doc
-%% Deploy an application ApplicationId on host HostName  
-%% 
-%% @end
-%%--------------------------------------------------------------------
--spec remove_application(ApplicationId::string(),WorkerNode::node()) -> 
-	  ok | {error, Error :: term()}.
-remove_application(ApplicationId,WorkerNode) ->
-    gen_server:call(?SERVER,{remove_application,ApplicationId,WorkerNode},infinity).
-%%--------------------------------------------------------------------
-%% @doc
-%% creates a cluster with cookie CookieStr and starts kubelet on the hosts
-%% and kubelet creates the number of workers NumWorkers  
-%% It's assumed that kubelet beams are in ~/kubelet/ebin 
-%% 
-%% @end
-%%--------------------------------------------------------------------
--spec new_cluster(ClusterId::string(),HostNameNumWorkers::term()) -> ok | 
-	  {error, Error :: term()}.
-new_cluster(ClusterId,HostNameNumWorkers) ->
-    gen_server:call(?SERVER,{new_cluster,ClusterId,HostNameNumWorkers},infinity).
-
-%%--------------------------------------------------------------------
-%% @doc
-%% stops all kubeletes and deletes their dirs 
-%% 
-%% @end
-%%--------------------------------------------------------------------
--spec delete_cluster(ClusterId::string()) -> ok | 
-	  {error, Error :: term()}.
-delete_cluster(ClusterId) ->
-    gen_server:call(?SERVER,{delete_cluster,ClusterId},infinity).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -157,15 +110,6 @@ delete_cluster(ClusterId) ->
 %%--------------------------------------------------------------------
 start()->
     application:start(?MODULE).
-
-
-%%--------------------------------------------------------------------
-%% @doc
-%% 
-%% @end
-%%--------------------------------------------------------------------
-kill()->
-    gen_server:call(?SERVER, {kill},infinity).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -213,10 +157,7 @@ init([]) ->
      
     ?LOG_NOTICE("Server started ",[?MODULE]),
     {ok, #state{
-	    wanted_state=[],
-	    deployment_id=undefined,
-	    deployments=[]
-	    
+	    worker_info=[]
 	   },0}.
 
 %%--------------------------------------------------------------------
@@ -236,9 +177,8 @@ init([]) ->
 	  {stop, Reason :: term(), NewState :: term()}.
 
     
-handle_call({new_deployment,DeploymentId}, _From, State)
-  when State#state.deployment_id==undefined ->
-    Result=try lib_control:new_deployment(DeploymentId) of
+handle_call({create_worker,ApplicationId}, _From, State) ->
+    Result=try lib_worker_controller:create_worker(ApplicationId) of
 	       {ok,R}->
 		   {ok,R};
 	       {error,Reason}->
@@ -247,10 +187,10 @@ handle_call({new_deployment,DeploymentId}, _From, State)
 	       Event:Reason:Stacktrace ->
 		   {Event,Reason,Stacktrace,?MODULE,?LINE}
 	   end,
-								Reply=case Result of
-	      {ok,WantedState}->
-		  io:format("WantedState ~p~n",[{WantedState,?MODULE,?LINE}]),
-		  NewState=State#state{wanted_state=WantedState},
+    Reply=case Result of
+	      {ok,WorkerInfo}->
+		  io:format("WorkerInfo ~p~n",[{WorkerInfo,?MODULE,?LINE}]),
+		  NewState=State#state{worker_info=[WorkerInfo|State#state.worker_info]},
 		  ok;
 	      ErrorEvent->
 		  io:format("ErrorEvent ~p~n",[{ErrorEvent,?MODULE,?LINE}]),
@@ -259,11 +199,27 @@ handle_call({new_deployment,DeploymentId}, _From, State)
 	  end,
     {reply, Reply, NewState};
  
-handle_call({new_deployment,DeploymentId}, _From, State)->
-    Reply={error,["Deployment is already deployed ",State#state.deployment_id]},
-    {reply, Reply, State};
-
-
+handle_call({delete_worker,Node}, _From, State) ->
+    Result=try lib_worker_controller:delete_worker(Node,State#state.worker_info) of
+	       {ok,R}->
+		   {ok,R};
+	       {error,Reason}->
+		   {error,Reason}
+	   catch
+	       Event:Reason:Stacktrace ->
+		   {Event,Reason,Stacktrace,?MODULE,?LINE}
+	   end,
+    Reply=case Result of
+	      {ok,WorkerInfo}->
+		  io:format("WorkerInfo ~p~n",[{WorkerInfo,?MODULE,?LINE}]),
+		  NewState=State#state{worker_info=lists:delete(WorkerInfo,State#state.worker_info)},
+		  ok;
+	      ErrorEvent->
+		  io:format("ErrorEvent ~p~n",[{ErrorEvent,?MODULE,?LINE}]),
+		  NewState=State,
+		  ErrorEvent
+	  end,
+    {reply, Reply, NewState};
 %%--------------------------------------------------------------------
 
 
@@ -304,9 +260,8 @@ handle_cast(UnMatchedSignal, State) ->
 	  {stop, Reason :: normal | term(), NewState :: term()}.
 
 handle_info(timeout, State) ->
-    io:format("timeout State ~p~n",[{State,?MODULE,?LINE}]),
-    ok=initial_trade_resources(),
-    
+    io:format("timeout, State ~p~n",[{State,?MODULE,?LINE}]),
+  
     {noreply, State};
 
 
@@ -362,9 +317,3 @@ format_status(_Opt, Status) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-initial_trade_resources()->
-    [rd:add_local_resource(ResourceType,Resource)||{ResourceType,Resource}<-?LocalResourceTuples],
-    [rd:add_target_resource_type(TargetType)||TargetType<-?TargetTypes],
-    rd:trade_resources(),
-    timer:sleep(3000),
-    ok.

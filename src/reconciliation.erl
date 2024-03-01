@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 18 Apr 2023 by c50 <joq62@c50>
 %%%-------------------------------------------------------------------
--module(controller). 
+-module(reconciliation).  
  
 -behaviour(gen_server).
 %%--------------------------------------------------------------------
@@ -26,7 +26,7 @@
 
 %% API
 -export([
-	 new_deployment/1
+	 start_loop/1
 %	 set_wanted_stated/
 %	 delete_cluster/1, 	
 %	 deploy_application/2, 
@@ -71,9 +71,8 @@
 -define(SERVER, ?MODULE).
 		     
 -record(state, {
-		wanted_state,
-		deployment_id,
-	        deployments
+	         wanted_state,
+		actual_state        
 	       }).
 
 %%%===================================================================
@@ -86,10 +85,10 @@
 %% 
 %% @end
 %%--------------------------------------------------------------------
--spec new_deployment(DeploymentId :: string()) -> 
+-spec start_loop(WantedState :: term()) -> 
 	  ok | {error, Error :: term()}.
-new_deployment(DeploymentId) ->
-    gen_server:call(?SERVER,{new_deployment,DeploymentId},infinity).
+start_loop(WantedState) ->
+    gen_server:call(?SERVER,{start_loop,WantedState},infinity).
 
 
 
@@ -214,8 +213,7 @@ init([]) ->
     ?LOG_NOTICE("Server started ",[?MODULE]),
     {ok, #state{
 	    wanted_state=[],
-	    deployment_id=undefined,
-	    deployments=[]
+	    actual_state=[]
 	    
 	   },0}.
 
@@ -236,9 +234,9 @@ init([]) ->
 	  {stop, Reason :: term(), NewState :: term()}.
 
     
-handle_call({new_deployment,DeploymentId}, _From, State)
-  when State#state.deployment_id==undefined ->
-    Result=try lib_control:new_deployment(DeploymentId) of
+handle_call({start_loop,WantedState}, _From, State)
+  when State#state.wanted_state==[] ->
+    Result=try lib_reconciliation:start_loop(WantedState) of
 	       {ok,R}->
 		   {ok,R};
 	       {error,Reason}->
@@ -247,10 +245,10 @@ handle_call({new_deployment,DeploymentId}, _From, State)
 	       Event:Reason:Stacktrace ->
 		   {Event,Reason,Stacktrace,?MODULE,?LINE}
 	   end,
-								Reply=case Result of
-	      {ok,WantedState}->
-		  io:format("WantedState ~p~n",[{WantedState,?MODULE,?LINE}]),
-		  NewState=State#state{wanted_state=WantedState},
+    Reply=case Result of
+	      {ok,ActualState}->
+		  io:format("ActualState ~p~n",[{ActualState,?MODULE,?LINE}]),
+		  NewState=State#state{actual_state=ActualState},
 		  ok;
 	      ErrorEvent->
 		  io:format("ErrorEvent ~p~n",[{ErrorEvent,?MODULE,?LINE}]),
@@ -259,8 +257,8 @@ handle_call({new_deployment,DeploymentId}, _From, State)
 	  end,
     {reply, Reply, NewState};
  
-handle_call({new_deployment,DeploymentId}, _From, State)->
-    Reply={error,["Deployment is already deployed ",State#state.deployment_id]},
+handle_call({start_loop,WantedState}, _From, State)->
+    Reply={error,["Loop  is already started  ",State#state.wanted_state]},
     {reply, Reply, State};
 
 
@@ -304,7 +302,7 @@ handle_cast(UnMatchedSignal, State) ->
 	  {stop, Reason :: normal | term(), NewState :: term()}.
 
 handle_info(timeout, State) ->
-    io:format("timeout State ~p~n",[{State,?MODULE,?LINE}]),
+    io:format("timeout State~p~n",[{State,?MODULE,?LINE}]),
     ok=initial_trade_resources(),
     
     {noreply, State};
