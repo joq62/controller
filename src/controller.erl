@@ -16,34 +16,47 @@
 
 -include("log.api").
 
+-include("controller.hrl").
+-include("controller.resource_discovery").
+
 -include("specs.hrl").
 
 
 
-%% API
 
+%% API
 -export([
-	 new_cluster/2,
-	 delete_cluster/1, 	
-	 deploy_application/2, 
-	 remove_application/2,
-	 which_applications/0
+%	 set_wanted_stated/
+%	 delete_cluster/1, 	
+%	 deploy_application/2, 
+%	 remove_application/2,
+%	 which_applications/0
 	 % - which_applications_host(HostName) ->[{ApplicationId,Node}]
          % - which_applications_node(Node) ->[{ApplicationId,Node}]
 	]).
 
+%% OaM 
 -export([
-
+%	 wanted_state_info/0,
+%	 is_wanted_state/0,
+%	 get_deployment_info/0,
+%	 get_deployment_info/1,
+%	 missing_applications/0,
+%	 running_applications/0,
+%	 running_applications_on_host/0,
+%	 running_applications_on_host/1,
+%	 all_connected_workers/0,
+%	 all_connected_controllers/0,
+%	 all_connected/0,
+	 
+	 
+%	 get_state/0
 	]).
 
 %% admin
 
-
-
-
 -export([
 	 start/0,
-	 kill/0,
 	 ping/0,
 	 stop/0
 	]).
@@ -275,10 +288,9 @@ handle_cast(UnMatchedSignal, State) ->
 	  {noreply, NewState :: term(), hibernate} |
 	  {stop, Reason :: normal | term(), NewState :: term()}.
 
-handle_info(timeout, State) 
-  when State#state.mode==production ->
+handle_info(timeout, State) ->
     io:format("timeout ~p~n",[{State#state.mode,?MODULE,?LINE}]),
-   
+    ok=initial_trade_resources(),
     
     {noreply, State};
 
@@ -330,3 +342,14 @@ format_status(_Opt, Status) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% @end
+%%--------------------------------------------------------------------
+initial_trade_resources()->
+    [rd:add_local_resource(ResourceType,Resource)||{ResourceType,Resource}<-?LocalResourceTuples],
+    [rd:add_target_resource_type(TargetType)||TargetType<-?TargetTypes],
+    rd:trade_resources(),
+    timer:sleep(3000),
+    ok.
