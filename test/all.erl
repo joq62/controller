@@ -75,7 +75,7 @@ setup()->
    ok=application:start(controller),
     pong=controller:ping(),
     [rd:add_local_resource(ResourceType,Resource)||{ResourceType,Resource}<-[]],
-    [rd:add_target_resource_type(TargetType)||TargetType<-[log,rd,catalog,worker]],
+    [rd:add_target_resource_type(TargetType)||TargetType<-[log,rd,catalog,adder,divi]],
     rd:trade_resources(),
     timer:sleep(3000),
     [

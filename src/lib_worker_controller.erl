@@ -14,7 +14,7 @@
 %% API
 -export([
 	 create_worker/1,
-	 delete_worker/2
+	 delete_worker/1
 	 
 	]).
 
@@ -27,15 +27,15 @@
 %%%===================================================================
 %%--------------------------------------------------------------------
 %% @doc
-%% Workers nodename convention ApplicationId_UniqueNum_cookie 
-%% UniqueNum=erlang:system_time(microsecond)
+%% Workers nodename convention Id_UniqueNum_cookie 
+%% UniqueNum=integer_to_list(erlang:system_time(microsecond),36)
 %% @end
 %%--------------------------------------------------------------------
-create_worker(ApplicationId)->
+create_worker(Id)->
     UniqueNum=integer_to_list(erlang:system_time(microsecond),36),
     {ok,HostName}=net:gethostname(),
     CookieStr=atom_to_list(erlang:get_cookie()),
-    NodeName=ApplicationId++"_"++UniqueNum++"_"++CookieStr,
+    NodeName=Id++"_"++UniqueNum++"_"++CookieStr,
     Args=" -setcookie "++CookieStr,
     {ok,Node}=slave:start(HostName,NodeName,Args),
     [rpc:call(Node,net_adm,ping,[N],5000)||N<-[node()|nodes()]],
@@ -43,7 +43,7 @@ create_worker(ApplicationId)->
     WorkerInfo=#{
 		 node=>Node,
 		 nodename=>NodeName,
-		 application_id=>ApplicationId,
+		 id=>Id,
 		 time=>{date(),time()}
 		},
     {ok,WorkerInfo}.
@@ -54,18 +54,10 @@ create_worker(ApplicationId)->
 %% UniqueNum=erlang:system_time(microsecond)
 %% @end
 %%--------------------------------------------------------------------
-delete_worker(Node,WorkerInfoList)->
-    WorkerInfo=[WI||WI<-WorkerInfoList,
-		    Node==maps:get(node,WI)],
-    Result=case WorkerInfo of
-	       []->
-		   {error,["Worker info for Node doesnt exists ",Node]};
-	       [Map]->
-		   erlang:monitor_node(Node,false),
-		   slave:stop(Node),
-		   {ok,Map}
-	   end,
-    {ok,Result}.
+delete_worker(Node)->
+    erlang:monitor_node(Node,false),
+    slave:stop(Node),
+    ok.
     
 
 %%%===================================================================
