@@ -45,7 +45,9 @@
 
 %% OaM 
 -export([
-%	 wanted_state_info/0,
+	 read_wanted_state/0,
+	 read_deployment_info/0,
+	 which_applications/0,
 %	 is_wanted_state/0,
 %	 get_deployment_info/0,
 %	 get_deployment_info/1,
@@ -58,7 +60,7 @@
 %	 all_connected/0,
 	 
 	 
-%	 get_state/0
+	 read_state/0
 	]).
 
 %% admin
@@ -79,13 +81,32 @@
 	
 
 % data
-% deployment=#{application_id=>ApplicationId,
-%              app=>App,
-%              worker_node=>WorkerNode,
-%              created=>{date(),time()}
+% 
+% DeploymentInfo=#{application_id,
+%                  app,
+%		 node=>Node,
+%		 nodename=>NodeName,
+%		 node_id=>Id,
+%		 time=>{date(),time()}
+%                state=>scheduled|loaded| started|stopped|unloaded           
+
 %              
+% ApplicationInfo=#{application_id=>ApplicationId,
+%		      app=>ApplicationIdApp,
+%		      time=>{date(),time()}},
+%                     
+%  WorkerInfo=#{
+%		 node=>Node,
+%		 nodename=>NodeName,
+%		 node_id=>Id,
+%		 time=>{date(),time()}
+%          
+%		},
+
+
+        
+
 -record(state, {
-		wanted_state,
 		deployment_id,
 		deployment_info
 	       }).
@@ -95,17 +116,25 @@
 %%%===================================================================
 %%--------------------------------------------------------------------
 %% @doc
-%% Checks and returns all running applications on all nodes on the
-%% cluster  
+%%   
 %% 
 %% @end
 %%--------------------------------------------------------------------
--spec new_deployment(DeploymentId :: string()) -> 
-	  ok | {error, Error :: term()}.
-new_deployment(DeploymentId) ->
-    gen_server:call(?SERVER,{new_deployment,DeploymentId},infinity).
+-spec read_deployment_info() -> 
+	  DeploymentInfoList::term() | {error, Error :: term()}.
+read_deployment_info() ->
+    gen_server:call(?SERVER,{read_deployment_info},infinity).
 
-
+%%--------------------------------------------------------------------
+%% @doc
+%%   
+%% 
+%% @end
+%%--------------------------------------------------------------------
+-spec read_wanted_state() -> 
+	  WantedApplicationIds::term() | {error, Error :: term()}.
+read_wanted_state() ->
+    gen_server:call(?SERVER,{read_wanted_state},infinity).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -161,29 +190,8 @@ deploy_application(ApplicationId,HostName) ->
 	  ok | {error, Error :: term()}.
 remove_application(ApplicationId,WorkerNode) ->
     gen_server:call(?SERVER,{remove_application,ApplicationId,WorkerNode},infinity).
-%%--------------------------------------------------------------------
-%% @doc
-%% creates a cluster with cookie CookieStr and starts kubelet on the hosts
-%% and kubelet creates the number of workers NumWorkers  
-%% It's assumed that kubelet beams are in ~/kubelet/ebin 
-%% 
-%% @end
-%%--------------------------------------------------------------------
--spec new_cluster(ClusterId::string(),HostNameNumWorkers::term()) -> ok | 
-	  {error, Error :: term()}.
-new_cluster(ClusterId,HostNameNumWorkers) ->
-    gen_server:call(?SERVER,{new_cluster,ClusterId,HostNameNumWorkers},infinity).
 
-%%--------------------------------------------------------------------
-%% @doc
-%% stops all kubeletes and deletes their dirs 
-%% 
-%% @end
-%%--------------------------------------------------------------------
--spec delete_cluster(ClusterId::string()) -> ok | 
-	  {error, Error :: term()}.
-delete_cluster(ClusterId) ->
-    gen_server:call(?SERVER,{delete_cluster,ClusterId},infinity).
+
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -200,17 +208,20 @@ start()->
 %% 
 %% @end
 %%--------------------------------------------------------------------
-kill()->
-    gen_server:call(?SERVER, {kill},infinity).
+-spec ping() -> pong | Error::term().
+ping()-> 
+    gen_server:call(?SERVER, {ping},infinity).
+
 
 %%--------------------------------------------------------------------
 %% @doc
 %% 
 %% @end
 %%--------------------------------------------------------------------
--spec ping() -> pong | Error::term().
-ping()-> 
-    gen_server:call(?SERVER, {ping},infinity).
+-spec read_state() -> 
+	  State :: term().
+read_state()-> 
+    gen_server:call(?SERVER, {read_state},infinity).
 
 
 %%--------------------------------------------------------------------
@@ -249,7 +260,6 @@ init([]) ->
      
     ?LOG_NOTICE("Server started ",[?MODULE]),
     {ok, #state{
-	    wanted_state=[],
 	    deployment_id=undefined,
 	    deployment_info=[]
 	    
@@ -271,7 +281,9 @@ init([]) ->
 	  {stop, Reason :: term(), Reply :: term(), NewState :: term()} |
 	  {stop, Reason :: term(), NewState :: term()}.
 
-    
+
+
+%%--------------------------------------------------------------------------    
 handle_call({deploy_application,ApplicationId}, _From, State) ->
     Result=try lib_controller:deploy_application(ApplicationId) of
 	       {ok,R}->
@@ -285,12 +297,11 @@ handle_call({deploy_application,ApplicationId}, _From, State) ->
     Reply=case Result of
 	      {ok,DeploymentInfo}->
 		  io:format("DeploymentInfo ~p~n",[{DeploymentInfo,?MODULE,?LINE}]),
-		  NewState=State#state{deployment_info=[DeploymentInfo|State#state.deployment_info],
-				       wanted_state=[ApplicationId|State#state.wanted_state]},
+		  NewState=State#state{deployment_info=[DeploymentInfo|State#state.deployment_info]},
 		  ok;
 	      ErrorEvent->
 		  io:format("ErrorEvent ~p~n",[{ErrorEvent,?MODULE,?LINE}]),
-		  NewState=State#state{wanted_state=[ApplicationId|State#state.wanted_state]},
+		  NewState=State,
 		  ErrorEvent
 	  end,
     {reply, Reply, NewState};
@@ -307,9 +318,9 @@ handle_call({remove_application,ApplicationId}, _From, State) ->
 		   {Event,Reason,Stacktrace,?MODULE,?LINE}
 	   end,
     Reply=case Result of
-	      {ok,DeploymentInfo}->
-		  io:format("DeploymentInfo ~p~n",[{DeploymentInfo,?MODULE,?LINE}]),
-		  NewState=State#state{deployment_info=lists:delete(DeploymentInfo,State#state.deployment_info)},
+	      {ok,UpdatedDeploymentInfoList}->
+		  io:format("UpdatedDeploymentInfoList ~p~n",[{UpdatedDeploymentInfoList,?MODULE,?LINE}]),
+		  NewState=State#state{deployment_info=UpdatedDeploymentInfoList},
 		  ok;
 	      ErrorEvent->
 		  io:format("ErrorEvent ~p~n",[{ErrorEvent,?MODULE,?LINE}]),
@@ -332,7 +343,7 @@ handle_call({new_deployment,DeploymentId}, _From, State)
 								Reply=case Result of
 	      {ok,WantedState}->
 		  io:format("WantedState ~p~n",[{WantedState,?MODULE,?LINE}]),
-		  NewState=State#state{wanted_state=WantedState},
+		  NewState=State,
 		  ok;
 	      ErrorEvent->
 		  io:format("ErrorEvent ~p~n",[{ErrorEvent,?MODULE,?LINE}]),
@@ -347,8 +358,18 @@ handle_call({new_deployment,DeploymentId}, _From, State)->
 
 
 %%--------------------------------------------------------------------
+handle_call({read_deployment_info}, _From, State) ->
+    Reply=State#state.deployment_info,
+    {reply, Reply, State};
+
+handle_call({read_wanted_state}, _From, State) ->
+    Reply=[maps:get(application_id,DeploymentInfo)||DeploymentInfo<-State#state.deployment_info],
+    {reply, Reply, State};
 
 
+handle_call({read_state}, _From, State) ->
+    Reply=State,
+    {reply, Reply, State};
 
 handle_call({ping}, _From, State) ->
     Reply=pong,
@@ -384,6 +405,33 @@ handle_cast(UnMatchedSignal, State) ->
 	  {noreply, NewState :: term(), Timeout :: timeout()} |
 	  {noreply, NewState :: term(), hibernate} |
 	  {stop, Reason :: normal | term(), NewState :: term()}.
+
+
+handle_info({nodedown,Node}, State) ->
+    io:format("nodedown,Node  ~p~n",[{Node,?MODULE,?LINE}]),
+    DeploymentInfoList=State#state.deployment_info,
+    Result=try lib_controller:clean_up(Node,DeploymentInfoList) of
+	       {ok,R}->
+		   {ok,R};
+	       {error,Reason}->
+		   {error,Reason}
+	   catch
+	       Event:Reason:Stacktrace ->
+		   {Event,Reason,Stacktrace,?MODULE,?LINE}
+	   end,
+    Reply=case Result of
+	      {ok,UpdatedDeploymentInfoList}->
+		  io:format("UpdatedDeploymentInfoList ~p~n",[{UpdatedDeploymentInfoList,?MODULE,?LINE}]),
+		  NewState=State#state{deployment_info=UpdatedDeploymentInfoList},
+		  ok;
+	      ErrorEvent->
+		  io:format("ErrorEvent ~p~n",[{ErrorEvent,?MODULE,?LINE}]),
+		  NewState=State,
+		  ErrorEvent
+	  end,
+    {noreply, NewState};
+
+
 
 handle_info(timeout, State) ->
     io:format("timeout State ~p~n",[{State,?MODULE,?LINE}]),

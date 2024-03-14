@@ -14,7 +14,8 @@
 %% API
 -export([
 	 deploy_application/1,
-	 remove_application/2	 
+	 remove_application/2,
+	 clean_up/2	 
 	]).
 
 -export([
@@ -63,11 +64,21 @@ deploy_application(ApplicationId)->
     pong=rpc:call(WorkerNode,ApplicationIdApp,ping,[],5000),
     
     %% All good
-    ApplicationInfo=#{application_id=>ApplicationId,
-		      app=>ApplicationIdApp,
-		      time=>{date(),time()}},
-    DeploymentInfo=[{application_info,ApplicationInfo},
-		    {worker_info,WorkerInfo}],
+   % ApplicationInfo=#{application_id=>ApplicationId,
+   %		      app=>ApplicationIdApp,
+   %		      time=>{date(),time()}},
+    NodeName=maps:get(nodename,WorkerInfo),
+    NodeId=maps:get(id,WorkerInfo),
+
+    DeploymentInfo=#{
+		     application_id=>ApplicationId,
+		     app=>ApplicationIdApp,
+		     node=>WorkerNode,
+		     nodename=>NodeName,
+		     node_id=>NodeId,
+		     time=>{date(),time()},
+		     state=>started
+		    },
     {ok,DeploymentInfo}.
 	
 
@@ -80,51 +91,78 @@ deploy_application(ApplicationId)->
 remove_application(ApplicationId,DeploymentInfoList)->
     
     %% Get DeploymetInfo for an deployment with ApplicationId, crash if doesnt exists
-    [{ApplicationInfo,WorkerInfo}|_]=[{ApplicationInfo,WorkerInfo}||[{application_info,ApplicationInfo},{worker_info,WorkerInfo}]<-DeploymentInfoList,
-				ApplicationId==maps:get(application_id,ApplicationInfo)],
+    [DeploymentInfo|_]=[DeploymentInfo||DeploymentInfo<-DeploymentInfoList,
+				ApplicationId==maps:get(application_id,DeploymentInfo)],
+    
+    
     
     %% stop monitoring the node
-    WorkerNode=maps:get(node,WorkerInfo),
+    WorkerNode=maps:get(node,DeploymentInfo),
+    case WorkerNode of
+	na->
+	    ok;
+	_->
+	    erlang:monitor_node(WorkerNode,false),
+	    case net_adm:ping(WorkerNode) of
+		pong->
+		    %% stop  ApplicationId
+		    ApplicationIdApp=maps:get(app,DeploymentInfo),
+		    ok=rpc:call(WorkerNode,application,stop,[ApplicationIdApp],5000),
+		    ok=rpc:call(WorkerNode,application,unload,[ApplicationIdApp],5000),
+	  
+		    %% stop  resource discovery
+		    {ok,RdApp}=rd:call(catalog,get_application_app,["resource_discovery"],5000),
+		    ok=rpc:call(WorkerNode,application,stop,[RdApp],5000),
+		    ok=rpc:call(WorkerNode,application,unload,[RdApp],5000),
+		    
+		    %% stop log
+		    {ok,LogApp}=rd:call(catalog,get_application_app,["log"],5000),
+		    ok=rpc:call(WorkerNode,application,stop,[LogApp],5000),
+		    ok=rpc:call(WorkerNode,application,unload,[LogApp],5000),
+		    
+		    %% stope slave node
+		    slave:stop(WorkerNode);
+		pang->
+		    ok
+	    end
+    end,
+  
+    
+    %% All good
+    UpdatedDeploymentInfoList=lists:delete(DeploymentInfo,DeploymentInfoList),
+    {ok,UpdatedDeploymentInfoList}.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Creates a new workernode , load and start infra services (log and resource discovery)
+%% and  the wanted application ApplicationId
+%% @end
+%%--------------------------------------------------------------------
+clean_up(WorkerNode,DeploymentInfoList)->
+
+    [DeploymentInfo|_]=[DeploymentInfo||DeploymentInfo<-DeploymentInfoList,
+					WorkerNode==maps:get(node,DeploymentInfo)],
+    WorkerNode=maps:get(node,DeploymentInfo),
+    
+    %% stop monitoring the node
     erlang:monitor_node(WorkerNode,false),
-    
-    %% stop  ApplicationId
-    ApplicationIdApp=maps:get(app,ApplicationInfo),
-    ok=rpc:call(WorkerNode,application,stop,[ApplicationIdApp],5000),
-    ok=rpc:call(WorkerNode,application,unload,[ApplicationIdApp],5000),
-    
-    %% stop  resource discovery
-    {ok,RdApp}=rd:call(catalog,get_application_app,["resource_discovery"],5000),
-    ok=rpc:call(WorkerNode,application,stop,[RdApp],5000),
-    ok=rpc:call(WorkerNode,application,unload,[RdApp],5000),
-    
-    %% stop log
-    {ok,LogApp}=rd:call(catalog,get_application_app,["log"],5000),
-    ok=rpc:call(WorkerNode,application,stop,[LogApp],5000),
-    ok=rpc:call(WorkerNode,application,unload,[LogApp],5000),
-    
-    
-    %% stope slave node
     slave:stop(WorkerNode),
     
     %% All good
-    DeploymentInfo=[{application_info,ApplicationInfo},
-		    {worker_info,WorkerInfo}],
-    {ok,DeploymentInfo}.
+    ApplicationId=maps:get(application_id,DeploymentInfo),
+    UpdatedDeploymentInfo=#{
+			    application_id=>ApplicationId,
+			    app=>na,
+			    node=>na,
+			    nodename=>na,
+			    node_id=>na,
+			    time=>{date(),time()},
+			    state=>scheduled
+			   },
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%
-%  Application  part Start
-%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%
-%  Cluster part Start
-%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+    UpdatedDeploymentInfoList=[UpdatedDeploymentInfo|lists:delete(DeploymentInfo,DeploymentInfoList)],
+    
+    {ok,UpdatedDeploymentInfoList}.
 
 
 %%%===================================================================
