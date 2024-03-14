@@ -72,8 +72,10 @@ setup()->
     ok=application:start(deployment),
     pong=deployment:ping(),
 
-   ok=application:start(controller),
+    ok=application:start(controller),
     pong=controller:ping(),
+    pong=reconciliation:ping(),
+
     [rd:add_local_resource(ResourceType,Resource)||{ResourceType,Resource}<-[]],
     [rd:add_target_resource_type(TargetType)||TargetType<-[log,rd,catalog,adder,divi]],
     rd:trade_resources(),

@@ -26,6 +26,9 @@
 
 %% API
 -export([
+	 add_application/1,
+	 delete_application/1,
+
 	 deploy_application/1,
 	 remove_application/1
 
@@ -114,6 +117,28 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
+%%--------------------------------------------------------------------
+%% @doc
+%% Add application with ApplicationId to be deployed 
+%% 
+%% @end
+%%--------------------------------------------------------------------
+-spec add_application(ApplicationId::string()) -> 
+	  ok | {error, Error :: term()}.
+add_application(ApplicationId) ->
+    gen_server:call(?SERVER,{add_application,ApplicationId},infinity).
+%%--------------------------------------------------------------------
+%% @doc
+%% Delete application ApplicationId from the deployment list 
+%% 
+%% @end
+%%--------------------------------------------------------------------
+-spec delete_application(ApplicationId::string()) -> 
+	  ok | {error, Error :: term()}.
+delete_application(ApplicationId) ->
+    gen_server:call(?SERVER,{delete_application,ApplicationId},infinity).
+
+
 %%--------------------------------------------------------------------
 %% @doc
 %%   
@@ -282,7 +307,33 @@ init([]) ->
 	  {stop, Reason :: term(), NewState :: term()}.
 
 
+handle_call({add_application,ApplicationId}, _From, State) ->
+    DeploymentInfo=#{
+		     application_id=>ApplicationId,
+		     app=>na,
+		     node=>na,
+		     nodename=>na,
+		     node_id=>na,
+		     time=>na,
+		     state=>scheduled
+		    },
+    NewState=State#state{deployment_info=[DeploymentInfo|State#state.deployment_info]},
+    Reply=ok,
+    {reply, Reply, NewState};
 
+handle_call({delete_application,ApplicationId}, _From, State) ->
+    R=[DeploymentInfo||DeploymentInfo<-State#state.deployment_info,
+		       ApplicationId==maps:get(application_id,DeploymentInfo)],
+    Reply=case R of
+	      []->
+		  NewState=State,
+		  {error,["Application doesnt exists ",ApplicationId]};
+	      [DeploymentInfo|_]->
+		  UpdatedDeploymentInfo=maps:put(state,delete,DeploymentInfo),
+		  NewState=State#state{deployment_info=[UpdatedDeploymentInfo|lists:delete(DeploymentInfo,State#state.deployment_info)]},
+		  ok
+	  end,
+    {reply, Reply, NewState};
 %%--------------------------------------------------------------------------    
 handle_call({deploy_application,ApplicationId}, _From, State) ->
     Result=try lib_controller:deploy_application(ApplicationId) of
@@ -371,10 +422,10 @@ handle_call({read_deployment_info}, _From, State) ->
     Reply=State#state.deployment_info,
     {reply, Reply, State};
 
+
 handle_call({read_wanted_state}, _From, State) ->
     Reply=[maps:get(application_id,DeploymentInfo)||DeploymentInfo<-State#state.deployment_info],
     {reply, Reply, State};
-
 
 handle_call({read_state}, _From, State) ->
     Reply=State,
@@ -513,6 +564,8 @@ format_status(_Opt, Status) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+
 %%--------------------------------------------------------------------
 %% @doc
 %%

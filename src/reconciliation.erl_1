@@ -1,0 +1,36 @@
+%%%-------------------------------------------------------------------
+%%% @author c50 <joq62@c50>
+%%% @copyright (C) 2024, c50
+%%% @doc
+%%%
+%%% @end
+%%% Created : 14 Mar 2024 by c50 <joq62@c50>
+%%%-------------------------------------------------------------------
+-module(reconciliation).
+
+%% API
+-export([start/2]).
+
+%%%===================================================================
+%%% API
+%%%===================================================================
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @spec
+%% @end
+%%--------------------------------------------------------------------
+start(DeploymentInfoList,Timeout)->
+    
+    StartList=[DeploymentInfo||DeploymentInfo<-DeploymentInfoList,
+			       scheduled==maps:get(state,DeploymentInfo)],
+    DeleteList=[DeploymentInfo||DeploymentInfo<-DeploymentInfoList,
+				delete==maps:get(state,DeploymentInfo)],
+    
+    
+    ok.
+
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================
+check

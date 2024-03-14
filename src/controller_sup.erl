@@ -30,6 +30,8 @@ init([]) ->
                  intensity => 0,
                  period => 1},
     ChildSpecs = [
+		  #{id => reconciliation,               
+		    start => {reconciliation,start_link,[]}},
 		  #{id => controller,               
 		    start => {controller,start_link,[]}}
 		 ],
