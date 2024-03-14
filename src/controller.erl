@@ -296,12 +296,21 @@ handle_call({deploy_application,ApplicationId}, _From, State) ->
 	   end,
     Reply=case Result of
 	      {ok,DeploymentInfo}->
-		  io:format("DeploymentInfo ~p~n",[{DeploymentInfo,?MODULE,?LINE}]),
+		%  io:format("DeploymentInfo ~p~n",[{DeploymentInfo,?MODULE,?LINE}]),
 		  NewState=State#state{deployment_info=[DeploymentInfo|State#state.deployment_info]},
 		  ok;
 	      ErrorEvent->
 		  io:format("ErrorEvent ~p~n",[{ErrorEvent,?MODULE,?LINE}]),
-		  NewState=State,
+		  DeploymentInfo=#{
+				   application_id=>ApplicationId,
+				   app=>na,
+				   node=>na,
+				   nodename=>na,
+				   node_id=>na,
+				   time=>{date(),time()},
+				   state=>scheduled
+				  },
+		  NewState=State#state{deployment_info=[DeploymentInfo|State#state.deployment_info]},
 		  ErrorEvent
 	  end,
     {reply, Reply, NewState};
@@ -319,7 +328,7 @@ handle_call({remove_application,ApplicationId}, _From, State) ->
 	   end,
     Reply=case Result of
 	      {ok,UpdatedDeploymentInfoList}->
-		  io:format("UpdatedDeploymentInfoList ~p~n",[{UpdatedDeploymentInfoList,?MODULE,?LINE}]),
+	%	  io:format("UpdatedDeploymentInfoList ~p~n",[{UpdatedDeploymentInfoList,?MODULE,?LINE}]),
 		  NewState=State#state{deployment_info=UpdatedDeploymentInfoList},
 		  ok;
 	      ErrorEvent->
@@ -340,7 +349,7 @@ handle_call({new_deployment,DeploymentId}, _From, State)
 	       Event:Reason:Stacktrace ->
 		   {Event,Reason,Stacktrace,?MODULE,?LINE}
 	   end,
-								Reply=case Result of
+    Reply=case Result of
 	      {ok,WantedState}->
 		  io:format("WantedState ~p~n",[{WantedState,?MODULE,?LINE}]),
 		  NewState=State,
@@ -419,22 +428,39 @@ handle_info({nodedown,Node}, State) ->
 	       Event:Reason:Stacktrace ->
 		   {Event,Reason,Stacktrace,?MODULE,?LINE}
 	   end,
-    Reply=case Result of
-	      {ok,UpdatedDeploymentInfoList}->
-		  io:format("UpdatedDeploymentInfoList ~p~n",[{UpdatedDeploymentInfoList,?MODULE,?LINE}]),
-		  NewState=State#state{deployment_info=UpdatedDeploymentInfoList},
-		  ok;
-	      ErrorEvent->
-		  io:format("ErrorEvent ~p~n",[{ErrorEvent,?MODULE,?LINE}]),
-		  NewState=State,
-		  ErrorEvent
-	  end,
+    case Result of
+	{ok,UpdatedDeploymentInfoList}->
+%	    io:format("UpdatedDeploymentInfoList ~p~n",[{UpdatedDeploymentInfoList,?MODULE,?LINE}]),
+	    NewState=State#state{deployment_info=UpdatedDeploymentInfoList},
+	    ok;
+	ErrorEvent->
+	    R2=[DeploymentInfo||DeploymentInfo<-DeploymentInfoList,
+			       Node==maps:get(node,DeploymentInfo)],
+	    case R2 of
+		[]->
+		     NewState=State;
+		[DeploymentInfo]->
+		    ApplicationId=maps:get(application_id,DeploymentInfo),
+		    DeploymentInfo=#{
+				     application_id=>ApplicationId,
+				     app=>na,
+				     node=>na,
+				     nodename=>na,
+				     node_id=>na,
+				     time=>{date(),time()},
+				     state=>scheduled
+				    },
+		    NewState=State#state{deployment_info=[DeploymentInfo|State#state.deployment_info]};
+		_ ->
+		    NewState=State
+			
+	    end
+    end,
     {noreply, NewState};
 
 
-
 handle_info(timeout, State) ->
-    io:format("timeout State ~p~n",[{State,?MODULE,?LINE}]),
+%    io:format("timeout State ~p~n",[{State,?MODULE,?LINE}]),
     ok=initial_trade_resources(),
     
     {noreply, State};

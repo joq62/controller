@@ -93,9 +93,6 @@ remove_application(ApplicationId,DeploymentInfoList)->
     %% Get DeploymetInfo for an deployment with ApplicationId, crash if doesnt exists
     [DeploymentInfo|_]=[DeploymentInfo||DeploymentInfo<-DeploymentInfoList,
 				ApplicationId==maps:get(application_id,DeploymentInfo)],
-    
-    
-    
     %% stop monitoring the node
     WorkerNode=maps:get(node,DeploymentInfo),
     case WorkerNode of
