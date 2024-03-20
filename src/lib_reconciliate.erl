@@ -30,25 +30,25 @@
 %% @end
 %%--------------------------------------------------------------------
 start(_Interval,DeploymentInfoList)->
-    
+    io:format("DeploymentInfoList ~p~n",[{?MODULE,?LINE,DeploymentInfoList}]),
     %% Check which Nodes that are running
     ActiveWorkerNodesOnThisHost=get_active_workers(),
-    io:format("ActiveWorkerNodesOnThisHost ~p~n",[{ActiveWorkerNodesOnThisHost,?MODULE,?LINE}]),
+ %   io:format("ActiveWorkerNodesOnThisHost ~p~n",[{ActiveWorkerNodesOnThisHost,?MODULE,?LINE}]),
     %%
     ActiveNodeApplicationApp=get_active_applications_nodes(ActiveWorkerNodesOnThisHost),
-    io:format("ActiveNodeApplicationApp ~p~n",[{ActiveNodeApplicationApp,?MODULE,?LINE}]),
+ %   io:format("ActiveNodeApplicationApp ~p~n",[{ActiveNodeApplicationApp,?MODULE,?LINE}]),
     %
     UpdatedDeploymentInfoListToStart=get_applications_to_start(ActiveNodeApplicationApp,DeploymentInfoList),
-    io:format("UpdatedDeploymentInfoListToStart ~p~n",[{UpdatedDeploymentInfoListToStart,?MODULE,?LINE}]),
+ %   io:format("UpdatedDeploymentInfoListToStart ~p~n",[{UpdatedDeploymentInfoListToStart,?MODULE,?LINE}]),
 
     UpdatedDeploymentInfoListToStartStop=get_applications_to_stop(ActiveNodeApplicationApp,UpdatedDeploymentInfoListToStart),
-    io:format("UpdatedDeploymentInfoListToStartStop ~p~n",[{UpdatedDeploymentInfoListToStartStop,?MODULE,?LINE}]),
+ %   io:format("UpdatedDeploymentInfoListToStartStop ~p~n",[{UpdatedDeploymentInfoListToStartStop,?MODULE,?LINE}]),
 
      UpdatedDeploymentInfoListDeploy=deploy_applications(UpdatedDeploymentInfoListToStartStop),
-    io:format("UpdatedDeploymentInfoListDeploy ~p~n",[{UpdatedDeploymentInfoListDeploy,?MODULE,?LINE}]),
+ %   io:format("UpdatedDeploymentInfoListDeploy ~p~n",[{UpdatedDeploymentInfoListDeploy,?MODULE,?LINE}]),
 
     UpdatedDeploymentInfoList=remove_applications(UpdatedDeploymentInfoListDeploy),
-    io:format("UpdatedDeploymentInfoList ~p~n",[{UpdatedDeploymentInfoList,?MODULE,?LINE}]),
+  %  io:format("UpdatedDeploymentInfoList ~p~n",[{UpdatedDeploymentInfoList,?MODULE,?LINE}]),
     {ok,UpdatedDeploymentInfoList}.
   
 %%%===================================================================

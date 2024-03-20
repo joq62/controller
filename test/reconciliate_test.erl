@@ -34,6 +34,11 @@ start()->
  %   ok=empty_test(),
     ok=simple_add_test(),
     ok=simple_delete_test(),
+
+    %
+    ok=multi_add_test(),
+    ok=multi_delete_test(),
+ %   ok=simple_delete_test(),
   %  ok=divi_test(),
   %  ok=add_load_start_delete_stop_unload(),
 %    ok=check_monitoring(),
@@ -42,6 +47,104 @@ start()->
     io:format("Test OK !!! ~p~n",[?MODULE]),
   %  timer:sleep(1000),
   %  init:stop(),
+    ok.
+
+
+
+%% --------------------------------------------------------------------
+%% Function: available_hosts()
+%% Description: Based on hosts.config file checks which hosts are avaible
+%% Returns: List({HostId,Ip,SshPort,Uid,Pwd}
+%% --------------------------------------------------------------------
+multi_add_test()->
+    io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME}]),
+    %% start 3 adder ad 2 divi
+    []=controller:read_deployment_info(),
+
+    ok=controller:add_application("adder"),
+    ok=controller:add_application("divi"),
+    ok=controller:add_application("adder"),
+    ok=controller:add_application("adder"),
+    ok=controller:add_application("divi"),
+    
+    %% reconciliate
+
+    ok=controller:reconciliate(),
+    timer:sleep(3000),
+    [NodeA1,NodeA2,NodeA3]=rd:fetch_resources(adder),
+    [NodeD1,NodeD2]=rd:fetch_resources(divi),
+ 
+    %% Test application access
+    pong=rd:call(adder,adder,ping,[],5000),
+    42=rd:call(adder,adder,add,[20,22],5000),
+
+    pong=rd:call(divi,divi,ping,[],5000),
+    42.0=rd:call(divi,divi,divi,[420,10],5000),
+
+    ok.
+
+%% --------------------------------------------------------------------
+%% Function: available_hosts()
+%% Description: Based on hosts.config file checks which hosts are avaible
+%% Returns: List({HostId,Ip,SshPort,Uid,Pwd}
+%% --------------------------------------------------------------------
+multi_delete_test()->
+    io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME}]),
+    
+    
+    5=erlang:length(controller:read_deployment_info()),
+    [NodeA1,NodeA2,NodeA3]=rd:fetch_resources(adder),
+    [NodeD1,NodeD2]=rd:fetch_resources(divi),
+ 
+    %% Test application access
+    pong=rd:call(adder,adder,ping,[],5000),
+    42=rd:call(adder,adder,add,[20,22],5000),
+    pong=rd:call(divi,divi,ping,[],5000),
+    42.0=rd:call(divi,divi,divi,[420,10],5000),
+
+    %% delete 1 adder ad 1 divi
+    ok=controller:delete_application("adder"),
+    ok=controller:delete_application("divi"),
+    ok=controller:reconciliate(),
+    timer:sleep(2000),  
+    [NodeA2,NodeA3]=rd:fetch_resources(adder),
+    [NodeD2]=rd:fetch_resources(divi),
+    pong=rd:call(adder,adder,ping,[],5000),
+    42=rd:call(adder,adder,add,[20,22],5000),
+    pong=rd:call(divi,divi,ping,[],5000),
+    42.0=rd:call(divi,divi,divi,[420,10],5000),
+    3=erlang:length(controller:read_deployment_info()),
+
+    %% delete 1 adder ad 1 divi
+    ok=controller:delete_application("adder"),
+    ok=controller:delete_application("divi"),
+    timer:sleep(2000), 
+    ok=controller:reconciliate(),
+    timer:sleep(2000),  
+    [NodeA3]=rd:fetch_resources(adder),
+    []=rd:fetch_resources(divi),
+    pong=rd:call(adder,adder,ping,[],5000),
+    42=rd:call(adder,adder,add,[20,22],5000),
+    {error,[eexists_resources]}=rd:call(divi,divi,ping,[],5000),
+    {error,[eexists_resources]}=rd:call(divi,divi,divi,[420,10],5000),
+    1=erlang:length(controller:read_deployment_info()),
+
+    %% delete last adder 
+
+    ok=controller:delete_application("adder"),
+    ok=controller:delete_application("divi"),
+    ok=controller:reconciliate(),
+    timer:sleep(3000),  
+    []=rd:fetch_resources(adder),
+    []=rd:fetch_resources(divi),
+    {error,[eexists_resources]}=rd:call(adder,adder,ping,[],5000),
+    {error,[eexists_resources]}=rd:call(adder,adder,add,[20,22],5000),
+    {error,[eexists_resources]}=rd:call(divi,divi,ping,[],5000),
+    {error,[eexists_resources]}=rd:call(divi,divi,divi,[420,10],5000),
+    0=erlang:length(controller:read_deployment_info()),
+  
+   
+
     ok.
 
 
