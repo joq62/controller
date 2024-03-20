@@ -9,7 +9,7 @@
 -module(lib_controller).
   
 
- 
+-include("controller.hrl").
   
 %% API
 -export([
@@ -85,7 +85,9 @@ deploy_application(ApplicationId)->
   
     %% Create new worker node
     {ok,WorkerInfo}=lib_worker_controller:create_worker(ApplicationId),
+
     WorkerNode=maps:get(node,WorkerInfo),
+    NodeName=maps:get(nodename,WorkerInfo),
     
     %% Load and start log
     {ok,LogPaths}=rd:call(catalog,get_application_paths,["log"],5000),
@@ -94,6 +96,16 @@ deploy_application(ApplicationId)->
     ok=rpc:call(WorkerNode,application,load,[LogApp],5000),
     ok=rpc:call(WorkerNode,application,start,[LogApp],5000),
     pong=rpc:call(WorkerNode,LogApp,ping,[],5000),
+    % Add where to store log information 
+    case filelib:is_dir(?MainLogDir) of
+	false->
+	    ok=file:make_dir(?MainLogDir);
+	true->
+	    no_action
+    end,
+    NodeNodeLogDir=filename:join(?MainLogDir,NodeName),
+    ok=rpc:call(WorkerNode,log,create_logger,[NodeNodeLogDir,?LocalLogDir,?LogFile,?MaxNumFiles,?MaxNumBytes],5000),
+    
 
     %% Load and start resource discovery
     {ok,RdPaths}=rd:call(catalog,get_application_paths,["resource_discovery"],5000),
@@ -108,14 +120,7 @@ deploy_application(ApplicationId)->
     ok=rpc:call(WorkerNode,application,load,[ApplicationIdApp],5000),
     ok=rpc:call(WorkerNode,application,start,[ApplicationIdApp,permanent],5000),
     pong=rpc:call(WorkerNode,ApplicationIdApp,ping,[],5000),
-    
-    %% All good
-   % ApplicationInfo=#{application_id=>ApplicationId,
-   %		      app=>ApplicationIdApp,
-   %		      time=>{date(),time()}},
-    NodeName=maps:get(nodename,WorkerInfo),
     NodeId=maps:get(id,WorkerInfo),
-
     DeploymentInfo=#{
 		     application_id=>ApplicationId,
 		     app=>ApplicationIdApp,
