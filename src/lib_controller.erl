@@ -45,10 +45,10 @@ nodedown(WorkerNode,DeploymentInfoList)->
     ApplicationId=maps:get(application_id,DeploymentInfo),
     UpdatedDeploymentInfoList=case maps:get(state,DeploymentInfo) of
 				  delete->
-				      io:format("delete ~p~n",[{?MODULE,?FUNCTION_NAME,?LINE,WorkerNode,ApplicationId}]),
+				    %  io:format("delete ~p~n",[{?MODULE,?FUNCTION_NAME,?LINE,WorkerNode,ApplicationId}]),
 				      lists:delete(DeploymentInfo,DeploymentInfoList);
 				  started->
-				      io:format("started ~p~n",[{?MODULE,?FUNCTION_NAME,?LINE,WorkerNode,ApplicationId}]),
+				    %  io:format("started ~p~n",[{?MODULE,?FUNCTION_NAME,?LINE,WorkerNode,ApplicationId}]),
 				      Info=#{
 					     application_id=>ApplicationId,
 					     app=>na,
@@ -59,7 +59,7 @@ nodedown(WorkerNode,DeploymentInfoList)->
 					     state=>scheduled},
 				      [Info|lists:delete(DeploymentInfo,DeploymentInfoList)];
 				  scheduled->
-				      io:format("started ~p~n",[{?MODULE,?FUNCTION_NAME,?LINE,WorkerNode,ApplicationId}]),
+				    %  io:format("started ~p~n",[{?MODULE,?FUNCTION_NAME,?LINE,WorkerNode,ApplicationId}]),
 				      Info=#{
 					     application_id=>ApplicationId,
 					     app=>na,

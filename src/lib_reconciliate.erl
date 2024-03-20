@@ -30,7 +30,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start(_Interval,DeploymentInfoList)->
-    io:format("DeploymentInfoList ~p~n",[{?MODULE,?LINE,DeploymentInfoList}]),
+  %  io:format("DeploymentInfoList ~p~n",[{?MODULE,?LINE,DeploymentInfoList}]),
     %% Check which Nodes that are running
     ActiveWorkerNodesOnThisHost=get_active_workers(),
  %   io:format("ActiveWorkerNodesOnThisHost ~p~n",[{ActiveWorkerNodesOnThisHost,?MODULE,?LINE}]),
@@ -106,9 +106,7 @@ remove_applications([DeploymentInfo|T],Acc)->
 	       scheduled ->
 		   [DeploymentInfo|Acc];
 	       delete ->
-		   io:format("ApplicationId ~p~n",[{?MODULE,?LINE,ApplicationId}]),
 		   ok=lib_controller:remove_application(DeploymentInfo),
-		   %   io:format("DeploymentInfo,DeploymentInfoListRemove ~p~n",[{?MODULE,?LINE,DeploymentInfo,DeploymentInfoListRemove}]),
 		   Acc
 	   end,	
     remove_applications(T,NewAcc).

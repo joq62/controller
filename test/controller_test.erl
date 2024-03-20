@@ -27,10 +27,10 @@ start()->
     io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME,?LINE}]),
     
     ok=setup(),
-  %  ok=add_delete(),
-  %  ok=add_load_start_delete_stop_unload(),
-%    ok=check_monitoring(),
-%    ok=deploy_remove_normal(),
+    ok=add_delete(),
+    ok=add_load_start_delete_stop_unload(),
+    ok=check_monitoring(),
+    ok=deploy_remove_normal(),
 
     io:format("Test OK !!! ~p~n",[?MODULE]),
   %  timer:sleep(1000),

@@ -28,8 +28,8 @@ start()->
     io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME,?LINE}]),
     
     ok=setup(),
- %   ok=node_crash1(),
- %   ok=node_crash2(),
+    ok=node_crash1(),
+    ok=node_crash2(),
     ok=application_crash(),
 
   %  ok=add_delete(),

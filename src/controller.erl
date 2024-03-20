@@ -296,6 +296,13 @@ stop()-> gen_server:stop(?SERVER).
 	  ignore.
 
 init([]) ->
+ 
+    file:del_dir_r(?MainLogDir),
+    ok=file:make_dir(?MainLogDir),
+    [NodeName,_HostName]=string:tokens(atom_to_list(node()),"@"),
+    NodeNodeLogDir=filename:join(?MainLogDir,NodeName),
+    ok=log:create_logger(NodeNodeLogDir,?LocalLogDir,?LogFile,?MaxNumFiles,?MaxNumBytes),
+  
      
     ?LOG_NOTICE("Server started ",[?MODULE]),
     {ok, #state{
@@ -322,6 +329,7 @@ init([]) ->
 
 
 handle_call({add_application,ApplicationId}, _From, State) ->
+    ?LOG_NOTICE("add_application ",[ApplicationId]),
     DeploymentInfo=#{
 		     application_id=>ApplicationId,
 		     app=>na,
@@ -336,6 +344,7 @@ handle_call({add_application,ApplicationId}, _From, State) ->
     {reply, Reply, NewState};
 
 handle_call({delete_application,ApplicationId}, _From, State) ->
+    ?LOG_NOTICE("delete_application ",[ApplicationId]),
     R=[DeploymentInfo||DeploymentInfo<-State#state.deployment_info,
 		       ApplicationId==maps:get(application_id,DeploymentInfo),
 		       delete=/=maps:get(state,DeploymentInfo)],
@@ -477,7 +486,7 @@ handle_cast({reconciliate}, State) ->
 	   end,
     case Result of
 	{ok,UpdatedDeploymentInfoList}->
-	    io:format("UpdatedDeploymentInfoList ~p~n",[{UpdatedDeploymentInfoList,?MODULE,?LINE}]),
+	 %   io:format("UpdatedDeploymentInfoList ~p~n",[{UpdatedDeploymentInfoList,?MODULE,?LINE}]),
 	    NewState=State#state{deployment_info=UpdatedDeploymentInfoList},
 	    ok;
 	ErrorEvent->
@@ -509,7 +518,8 @@ handle_cast(UnMatchedSignal, State) ->
 
 
 handle_info({nodedown,Node}, State) ->
-    io:format("nodedown,Node  ~p~n",[{Node,?MODULE,?LINE}]),
+%    io:format("nodedown,Node  ~p~n",[{Node,?MODULE,?LINE}]),
+    ?LOG_NOTICE("nodedown ",[Node]),
     DeploymentInfoList=State#state.deployment_info,
     Result=try lib_controller:nodedown(Node,DeploymentInfoList) of
 	       {ok,R}->
@@ -526,6 +536,7 @@ handle_info({nodedown,Node}, State) ->
 	    NewState=State#state{deployment_info=UpdatedDeploymentInfoList},
 	    ok;
 	ErrorEvent->
+	    ?LOG_ALERT("Error ",[ErrorEvent]),
 	    R2=[DeploymentInfo||DeploymentInfo<-DeploymentInfoList,
 			       Node==maps:get(node,DeploymentInfo)],
 	    case R2 of
