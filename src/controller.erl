@@ -337,7 +337,8 @@ handle_call({add_application,ApplicationId}, _From, State) ->
 
 handle_call({delete_application,ApplicationId}, _From, State) ->
     R=[DeploymentInfo||DeploymentInfo<-State#state.deployment_info,
-		       ApplicationId==maps:get(application_id,DeploymentInfo)],
+		       ApplicationId==maps:get(application_id,DeploymentInfo),
+		       delete=/=maps:get(state,DeploymentInfo)],
     Reply=case R of
 	      []->
 		  NewState=State,
