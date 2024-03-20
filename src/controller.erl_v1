@@ -538,7 +538,7 @@ handle_info({nodedown,Node}, State) ->
 				     node=>na,
 				     nodename=>na,
 				     node_id=>na,
-				     time=>na,
+				     time=>{date(),time()},
 				     state=>scheduled
 				    },
 		    NewState=State#state{deployment_info=[DeploymentInfo|State#state.deployment_info]};

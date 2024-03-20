@@ -136,11 +136,9 @@ remove_application(ApplicationId,DeploymentInfoList)->
 %% @end
 %%--------------------------------------------------------------------
 clean_up(WorkerNode,DeploymentInfoList)->
-
     [DeploymentInfo|_]=[DeploymentInfo||DeploymentInfo<-DeploymentInfoList,
 					WorkerNode==maps:get(node,DeploymentInfo)],
     WorkerNode=maps:get(node,DeploymentInfo),
-    
     %% stop monitoring the node
     erlang:monitor_node(WorkerNode,false),
     slave:stop(WorkerNode),
@@ -153,7 +151,7 @@ clean_up(WorkerNode,DeploymentInfoList)->
 			    node=>na,
 			    nodename=>na,
 			    node_id=>na,
-			    time=>{date(),time()},
+			    time=>na,
 			    state=>scheduled
 			   },
 
