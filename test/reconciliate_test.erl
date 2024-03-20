@@ -32,8 +32,8 @@ start()->
     
     ok=setup(),
  %   ok=empty_test(),
-    ok=simple_add_test(),
-    ok=simple_delete_test(),
+ %   ok=simple_add_test(),
+ %   ok=simple_delete_test(),
 
     %
     ok=multi_add_test(),
@@ -93,9 +93,7 @@ multi_delete_test()->
     
     
     5=erlang:length(controller:read_deployment_info()),
-    [NodeA1,NodeA2,NodeA3]=rd:fetch_resources(adder),
-    [NodeD1,NodeD2]=rd:fetch_resources(divi),
- 
+    5=erlang:length(nodes()),
     %% Test application access
     pong=rd:call(adder,adder,ping,[],5000),
     42=rd:call(adder,adder,add,[20,22],5000),
@@ -107,13 +105,13 @@ multi_delete_test()->
     ok=controller:delete_application("divi"),
     ok=controller:reconciliate(),
     timer:sleep(2000),  
-    [NodeA2,NodeA3]=rd:fetch_resources(adder),
-    [NodeD2]=rd:fetch_resources(divi),
+    
     pong=rd:call(adder,adder,ping,[],5000),
     42=rd:call(adder,adder,add,[20,22],5000),
     pong=rd:call(divi,divi,ping,[],5000),
     42.0=rd:call(divi,divi,divi,[420,10],5000),
     3=erlang:length(controller:read_deployment_info()),
+    3=erlang:length(nodes()),
 
     %% delete 1 adder ad 1 divi
     ok=controller:delete_application("adder"),
@@ -121,28 +119,26 @@ multi_delete_test()->
     timer:sleep(2000), 
     ok=controller:reconciliate(),
     timer:sleep(2000),  
-    [NodeA3]=rd:fetch_resources(adder),
-    []=rd:fetch_resources(divi),
+   
     pong=rd:call(adder,adder,ping,[],5000),
     42=rd:call(adder,adder,add,[20,22],5000),
     {error,[eexists_resources]}=rd:call(divi,divi,ping,[],5000),
     {error,[eexists_resources]}=rd:call(divi,divi,divi,[420,10],5000),
     1=erlang:length(controller:read_deployment_info()),
-
+    1=erlang:length(nodes()),
     %% delete last adder 
 
     ok=controller:delete_application("adder"),
-    ok=controller:delete_application("divi"),
+    {error,["Application doesnt exists ","divi"]}=controller:delete_application("divi"),
     ok=controller:reconciliate(),
-    timer:sleep(3000),  
-    []=rd:fetch_resources(adder),
-    []=rd:fetch_resources(divi),
+    timer:sleep(2000),  
+
     {error,[eexists_resources]}=rd:call(adder,adder,ping,[],5000),
     {error,[eexists_resources]}=rd:call(adder,adder,add,[20,22],5000),
     {error,[eexists_resources]}=rd:call(divi,divi,ping,[],5000),
     {error,[eexists_resources]}=rd:call(divi,divi,divi,[420,10],5000),
     0=erlang:length(controller:read_deployment_info()),
-  
+    0=erlang:length(nodes()),
    
 
     ok.

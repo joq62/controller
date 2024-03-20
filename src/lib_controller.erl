@@ -14,6 +14,8 @@
 %% API
 -export([
 	 deploy_application/1,
+	 remove_application/1,
+	 
 	 remove_application/2,
 	 clean_up/2	 
 	]).
@@ -127,7 +129,53 @@ remove_application(ApplicationId,DeploymentInfoList)->
     
     %% All good
     UpdatedDeploymentInfoList=lists:delete(DeploymentInfo,DeploymentInfoList),
+    io:format("DeploymentInfo ~p~n",[{?MODULE,?LINE,DeploymentInfo}]),
+    io:format("DeploymentInfoList ~p~n",[{?MODULE,?LINE,DeploymentInfoList}]),
+    io:format("UpdatedDeploymentInfoList ~p~n",[{?MODULE,?LINE,UpdatedDeploymentInfoList}]),
     {ok,UpdatedDeploymentInfoList}.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Creates a new workernode , load and start infra services (log and resource discovery)
+%% and  the wanted application ApplicationId
+%% @end
+%%--------------------------------------------------------------------
+remove_application(DeploymentInfo)->
+    
+    WorkerNode=maps:get(node,DeploymentInfo),
+    case WorkerNode of
+	na->
+	    ok;
+	_->
+	    erlang:monitor_node(WorkerNode,false),
+	    case net_adm:ping(WorkerNode) of
+		pong->
+		    %% stop  ApplicationId
+		    ApplicationIdApp=maps:get(app,DeploymentInfo),
+		    ok=rpc:call(WorkerNode,application,stop,[ApplicationIdApp],5000),
+		    ok=rpc:call(WorkerNode,application,unload,[ApplicationIdApp],5000),
+	  
+		    %% stop  resource discovery
+		    {ok,RdApp}=rd:call(catalog,get_application_app,["resource_discovery"],5000),
+		    ok=rpc:call(WorkerNode,application,stop,[RdApp],5000),
+		    ok=rpc:call(WorkerNode,application,unload,[RdApp],5000),
+		    
+		    %% stop log
+		    {ok,LogApp}=rd:call(catalog,get_application_app,["log"],5000),
+		    ok=rpc:call(WorkerNode,application,stop,[LogApp],5000),
+		    ok=rpc:call(WorkerNode,application,unload,[LogApp],5000),
+		    
+		    %% stope slave node
+		    slave:stop(WorkerNode);
+		pang->
+		    ok
+	    end
+    end,
+  
+    
+    %% All good
+    ok.
+
 
 %%--------------------------------------------------------------------
 %% @doc

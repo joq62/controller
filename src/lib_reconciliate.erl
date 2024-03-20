@@ -93,23 +93,25 @@ remove_applications([])->
     [];
 
 remove_applications(DeploymentInfoList)->
-    remove_applications(DeploymentInfoList,DeploymentInfoList).
+    remove_applications(DeploymentInfoList,[]).
     
 
 remove_applications([],UpdatedDeploymentInfoList)->
     UpdatedDeploymentInfoList;
-remove_applications([DeploymentInfo|T],DeploymentInfoList)->
+remove_applications([DeploymentInfo|T],Acc)->
     ApplicationId=maps:get(application_id,DeploymentInfo),
-    UpdatedDeploymentInfoList=case maps:get(state,DeploymentInfo) of
-				  started->
-				      DeploymentInfoList;
-				  scheduled ->
-				      DeploymentInfoList;
-				  delete ->
-				      {ok,DeploymentInfoListRemove}=lib_controller:remove_application(ApplicationId,DeploymentInfoList),
-				      DeploymentInfoListRemove
-			  end,	
-    remove_applications(T,UpdatedDeploymentInfoList).
+    NewAcc=case maps:get(state,DeploymentInfo) of
+	       started->
+		   [DeploymentInfo|Acc];
+	       scheduled ->
+		   [DeploymentInfo|Acc];
+	       delete ->
+		   io:format("ApplicationId ~p~n",[{?MODULE,?LINE,ApplicationId}]),
+		   ok=lib_controller:remove_application(DeploymentInfo),
+		   %   io:format("DeploymentInfo,DeploymentInfoListRemove ~p~n",[{?MODULE,?LINE,DeploymentInfo,DeploymentInfoListRemove}]),
+		   Acc
+	   end,	
+    remove_applications(T,NewAcc).
     
 
 
