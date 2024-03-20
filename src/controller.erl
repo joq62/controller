@@ -297,11 +297,11 @@ stop()-> gen_server:stop(?SERVER).
 
 init([]) ->
  
-    file:del_dir_r(?MainLogDir),
-    ok=file:make_dir(?MainLogDir),
-    [NodeName,_HostName]=string:tokens(atom_to_list(node()),"@"),
-    NodeNodeLogDir=filename:join(?MainLogDir,NodeName),
-    ok=log:create_logger(NodeNodeLogDir,?LocalLogDir,?LogFile,?MaxNumFiles,?MaxNumBytes),
+%    file:del_dir_r(?MainLogDir),
+%    ok=file:make_dir(?MainLogDir),
+%    [NodeName,_HostName]=string:tokens(atom_to_list(node()),"@"),
+%    NodeNodeLogDir=filename:join(?MainLogDir,NodeName),
+%    ok=log:create_logger(NodeNodeLogDir,?LocalLogDir,?LogFile,?MaxNumFiles,?MaxNumBytes),
   
      
     ?LOG_NOTICE("Server started ",[?MODULE]),
