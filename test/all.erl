@@ -30,7 +30,8 @@ start()->
     io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME,?LINE}]),
     
     ok=setup(),
-    ok=controller_test:start(),
+%    ok=controller_test:start(),
+    ok=reconciliate_test:start(),
 
     io:format("Test OK !!! ~p~n",[?MODULE]),
 %    timer:sleep(1000),
@@ -74,7 +75,7 @@ setup()->
 
     ok=application:start(controller),
     pong=controller:ping(),
-    pong=reconciliation:ping(),
+ 
 
     [rd:add_local_resource(ResourceType,Resource)||{ResourceType,Resource}<-[]],
     [rd:add_target_resource_type(TargetType)||TargetType<-[log,rd,catalog,adder,divi]],

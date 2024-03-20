@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 11 Jan 2024 by c50 <joq62@c50>
 %%%-------------------------------------------------------------------
--module(lib_reconciliation).
+-module(lib_reconciliate).
    
 
  
@@ -33,22 +33,86 @@ start(_Interval,DeploymentInfoList)->
     
     %% Check which Nodes that are running
     ActiveWorkerNodesOnThisHost=get_active_workers(),
+    io:format("ActiveWorkerNodesOnThisHost ~p~n",[{ActiveWorkerNodesOnThisHost,?MODULE,?LINE}]),
     %%
     ActiveNodeApplicationApp=get_active_applications_nodes(ActiveWorkerNodesOnThisHost),
+    io:format("ActiveNodeApplicationApp ~p~n",[{ActiveNodeApplicationApp,?MODULE,?LINE}]),
     %
     UpdatedDeploymentInfoListToStart=get_applications_to_start(ActiveNodeApplicationApp,DeploymentInfoList),
+    io:format("UpdatedDeploymentInfoListToStart ~p~n",[{UpdatedDeploymentInfoListToStart,?MODULE,?LINE}]),
+
     UpdatedDeploymentInfoListToStartStop=get_applications_to_stop(ActiveNodeApplicationApp,UpdatedDeploymentInfoListToStart),
-    {ok,UpdatedDeploymentInfoListToStartStop}.
-    
-  %  UpdatedDeploymentInfoList=glurk:start_stop_applications(UpdatedDeploymentInfoListToStartStop),
-    
-   
-  %  UpdatedDeploymentInfoList=lists:delete(DeploymentInfo,DeploymentInfoList),
-  %  {ok,UpdatedDeploymentInfoList}.
+    io:format("UpdatedDeploymentInfoListToStartStop ~p~n",[{UpdatedDeploymentInfoListToStartStop,?MODULE,?LINE}]),
+
+     UpdatedDeploymentInfoListDeploy=deploy_applications(UpdatedDeploymentInfoListToStartStop),
+    io:format("UpdatedDeploymentInfoListDeploy ~p~n",[{UpdatedDeploymentInfoListDeploy,?MODULE,?LINE}]),
+
+    UpdatedDeploymentInfoList=remove_applications(UpdatedDeploymentInfoListDeploy),
+    io:format("UpdatedDeploymentInfoList ~p~n",[{UpdatedDeploymentInfoList,?MODULE,?LINE}]),
+    {ok,UpdatedDeploymentInfoList}.
   
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+
+%%--------------------------------------------------------------------
+%% @doc
+%% 
+%% @end
+%%--------------------------------------------------------------------
+deploy_applications([])->
+    [];
+
+deploy_applications(DeploymentInfoList)->
+    deploy_applications(DeploymentInfoList,[]).
+    
+
+deploy_applications([],Acc)->
+    Acc;
+deploy_applications([DeploymentInfo|T],Acc)->
+    ApplicationId=maps:get(application_id,DeploymentInfo),
+    UpdatedDeploymentInfo=case maps:get(state,DeploymentInfo) of
+			      started->
+				  DeploymentInfo;
+			      delete ->
+				  DeploymentInfo;
+			      scheduled ->
+				  {ok,DeploymentInfoDeploy}=lib_controller:deploy_application(ApplicationId),
+				  DeploymentInfoDeploy
+			  end,	
+    NewAcc=[UpdatedDeploymentInfo|Acc],
+    deploy_applications(T,NewAcc).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% 
+%% @end
+%%--------------------------------------------------------------------
+remove_applications([])->
+    [];
+
+remove_applications(DeploymentInfoList)->
+    remove_applications(DeploymentInfoList,DeploymentInfoList).
+    
+
+remove_applications([],UpdatedDeploymentInfoList)->
+    UpdatedDeploymentInfoList;
+remove_applications([DeploymentInfo|T],DeploymentInfoList)->
+    ApplicationId=maps:get(application_id,DeploymentInfo),
+    UpdatedDeploymentInfoList=case maps:get(state,DeploymentInfo) of
+				  started->
+				      DeploymentInfoList;
+				  scheduled ->
+				      DeploymentInfoList;
+				  delete ->
+				      {ok,DeploymentInfoListRemove}=lib_controller:remove_application(ApplicationId,DeploymentInfoList),
+				      DeploymentInfoListRemove
+			  end,	
+    remove_applications(T,UpdatedDeploymentInfoList).
+    
+
+
 
 
 %%--------------------------------------------------------------------

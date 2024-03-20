@@ -465,7 +465,7 @@ handle_call(UnMatchedSignal, From, State) ->
 handle_cast({reconciliate}, State) ->
     io:format(" ~p~n",[{?FUNCTION_NAME,?MODULE,?LINE}]),
     DeploymentInfoList=State#state.deployment_info,
-    Result=try lib_reconciliate:start(DeploymentInfoList) of
+    Result=try lib_reconciliate:start(?Interval,DeploymentInfoList) of
 	       {ok,R}->
 		   {ok,R};
 	       {error,Reason}->
@@ -476,7 +476,7 @@ handle_cast({reconciliate}, State) ->
 	   end,
     case Result of
 	{ok,UpdatedDeploymentInfoList}->
-	    %io:format("UpdatedDeploymentInfoList ~p~n",[{UpdatedDeploymentInfoList,?MODULE,?LINE}]),
+	    io:format("UpdatedDeploymentInfoList ~p~n",[{UpdatedDeploymentInfoList,?MODULE,?LINE}]),
 	    NewState=State#state{deployment_info=UpdatedDeploymentInfoList},
 	    ok;
 	ErrorEvent->

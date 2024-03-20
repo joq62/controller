@@ -6,7 +6,7 @@
               {applications,[kernel,stdlib]},
               {env,[]},
               {modules,[controller,controller_app,controller_sup,
-                        lib_controller,lib_reconciliation,
+                        lib_controller,lib_reconciliate,lib_reconciliation,
                         lib_worker_controller]},
               {licenses,["Apache-2.0"]},
               {links,[]}]}.
