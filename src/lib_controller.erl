@@ -15,8 +15,9 @@
 -export([
 	 deploy_application/1,
 	 remove_application/1,
-	 
 	 remove_application/2,
+	 nodedown/2,
+
 	 clean_up/2	 
 	]).
 
@@ -27,6 +28,49 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
+
+%%--------------------------------------------------------------------
+%% @doc
+%% when a node craches controller uses this function to sort out what to do
+%% and  the wanted application ApplicationId
+%% @end
+%%--------------------------------------------------------------------
+nodedown(WorkerNode,DeploymentInfoList)->
+    [DeploymentInfo]=[DeploymentInfo||DeploymentInfo<-DeploymentInfoList,
+				      WorkerNode==maps:get(node,DeploymentInfo)],
+    WorkerNode=maps:get(node,DeploymentInfo),
+    %% stop monitoring the node
+    erlang:monitor_node(WorkerNode,false),
+    slave:stop(WorkerNode),
+    ApplicationId=maps:get(application_id,DeploymentInfo),
+    UpdatedDeploymentInfoList=case maps:get(state,DeploymentInfo) of
+				  delete->
+				      io:format("delete ~p~n",[{?MODULE,?FUNCTION_NAME,?LINE,WorkerNode,ApplicationId}]),
+				      lists:delete(DeploymentInfo,DeploymentInfoList);
+				  started->
+				      io:format("started ~p~n",[{?MODULE,?FUNCTION_NAME,?LINE,WorkerNode,ApplicationId}]),
+				      Info=#{
+					     application_id=>ApplicationId,
+					     app=>na,
+					     node=>na,
+					     nodename=>na,
+					     node_id=>na,
+					     time=>na,
+					     state=>scheduled},
+				      [Info|lists:delete(DeploymentInfo,DeploymentInfoList)];
+				  scheduled->
+				      io:format("started ~p~n",[{?MODULE,?FUNCTION_NAME,?LINE,WorkerNode,ApplicationId}]),
+				      Info=#{
+					     application_id=>ApplicationId,
+					     app=>na,
+					     node=>na,
+					     nodename=>na,
+					     node_id=>na,
+					     time=>na,
+					     state=>scheduled},
+				      [Info|lists:delete(DeploymentInfo,DeploymentInfoList)]
+			      end,  
+    {ok,UpdatedDeploymentInfoList}.
 %%--------------------------------------------------------------------
 %% @doc
 %% Creates a new workernode , load and start infra services (log and resource discovery)

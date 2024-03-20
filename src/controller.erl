@@ -510,7 +510,7 @@ handle_cast(UnMatchedSignal, State) ->
 handle_info({nodedown,Node}, State) ->
     io:format("nodedown,Node  ~p~n",[{Node,?MODULE,?LINE}]),
     DeploymentInfoList=State#state.deployment_info,
-    Result=try lib_controller:clean_up(Node,DeploymentInfoList) of
+    Result=try lib_controller:nodedown(Node,DeploymentInfoList) of
 	       {ok,R}->
 		   {ok,R};
 	       {error,Reason}->
