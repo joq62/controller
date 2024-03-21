@@ -473,7 +473,7 @@ handle_call(UnMatchedSignal, From, State) ->
 
 
 handle_cast({reconciliate}, State) ->
-    io:format(" ~p~n",[{?FUNCTION_NAME,?MODULE,?LINE}]),
+  %  io:format(" ~p~n",[{?FUNCTION_NAME,?MODULE,?LINE}]),
     DeploymentInfoList=State#state.deployment_info,
     Result=try lib_reconciliate:start(DeploymentInfoList) of
 	       {ok,R}->
