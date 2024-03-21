@@ -38,9 +38,6 @@ no_ebin_commit:
 	#INFO: Deleting files and dirs created during execution/runtime 
 	rm -rf logs;
 	rm -rf *_a;
-	# copy production rebar.config from src
-	rm -f rebar.config;
-	cp src/rebar.config rebar.config;
 	#INFO: Compile application
 	mkdir ebin;		
 	rebar3 compile;	
@@ -60,7 +57,7 @@ with_ebin_commit:
 	#INFO: Deleting crash reports
 	rm -rf erl_cra* rebar3_crashreport_GLURK;
 	#INFO: Deleting euinit test applications dirs
-	rm -rf log resource_discovery etcd;
+	rm -rf log resource_discovery;
 	rm -rf inventory;
 	rm -rf catalog;
 	rm -rf doc;
@@ -77,9 +74,6 @@ with_ebin_commit:
 	#INFO: Deleting files and dirs created during execution/runtime 
 	rm -rf logs;
 	rm -rf *_a;
-	# copy production rebar.config from src
-	rm -f rebar.config;
-	cp src/rebar.config rebar.config;
 	#INFO: Compile application
 	mkdir ebin;		
 	rebar3 compile;	
@@ -112,9 +106,6 @@ build:
 	#INFO: Deleting files and dirs created during execution/runtime 
 	rm -rf logs;
 	rm -rf *_a;
-	# copy production rebar.config from src
-	rm -f rebar.config;
-	cp src/rebar.config rebar.config;
 	#INFO: Compile application
 	mkdir ebin;		
 	rebar3 compile;	
@@ -144,9 +135,6 @@ clean:
 	#INFO: Deleting files and dirs created during execution/runtime 
 	rm -rf logs;
 	rm -rf *_a;
-	# copy production rebar.config from src
-	rm -f rebar.config;
-	cp src/rebar.config rebar.config;
 	#INFO: clean ENDED SUCCESSFUL
 eunit: 
 	#INFO: eunit STARTED
@@ -199,7 +187,7 @@ eunit:
 	mkdir ebin;		
 	rebar3 compile;	
 	cp _build/default/lib/*/ebin/* ebin;
-	rm -rf _build*;
+#	rm -rf _build*;
 	#INFO: Starts the eunit testing .................
 	erl -pa ebin -pa priv -pa test_ebin\
 	    -pa /home/joq62/erlang/dev/log/ebin\
