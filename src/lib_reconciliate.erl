@@ -13,7 +13,7 @@
   
 %% API
 -export([
-	 start/2
+	 start/1
 	]).
 
 -export([
@@ -29,7 +29,7 @@
 %% and  the wanted application ApplicationId
 %% @end
 %%--------------------------------------------------------------------
-start(_Interval,DeploymentInfoList)->
+start(DeploymentInfoList)->
   %  io:format("DeploymentInfoList ~p~n",[{?MODULE,?LINE,DeploymentInfoList}]),
     %% Check which Nodes that are running
     ActiveWorkerNodesOnThisHost=get_active_workers(),

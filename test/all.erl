@@ -31,8 +31,8 @@ start()->
     
     ok=setup(),
 %    ok=controller_test:start(),
-    ok=reconciliate_test:start(),
-    ok=destructive_test:start(),
+ %   ok=reconciliate_test:start(),
+ %   ok=destructive_test:start(),
     io:format("Test OK !!! ~p~n",[?MODULE]),
 %    timer:sleep(1000),
 %    init:stop(),

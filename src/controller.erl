@@ -473,9 +473,9 @@ handle_call(UnMatchedSignal, From, State) ->
 
 
 handle_cast({reconciliate}, State) ->
-%    io:format(" ~p~n",[{?FUNCTION_NAME,?MODULE,?LINE}]),
+    io:format(" ~p~n",[{?FUNCTION_NAME,?MODULE,?LINE}]),
     DeploymentInfoList=State#state.deployment_info,
-    Result=try lib_reconciliate:start(?Interval,DeploymentInfoList) of
+    Result=try lib_reconciliate:start(DeploymentInfoList) of
 	       {ok,R}->
 		   {ok,R};
 	       {error,Reason}->
@@ -494,6 +494,7 @@ handle_cast({reconciliate}, State) ->
 	    NewState=State,
 	    ErrorEvent
     end,
+    spawn(fun()->reconciliate_loop() end),
     {noreply, NewState};
 
 handle_cast({stop}, State) ->
@@ -565,6 +566,7 @@ handle_info({nodedown,Node}, State) ->
 handle_info(timeout, State) ->
 %    io:format("timeout State ~p~n",[{State,?MODULE,?LINE}]),
     ok=initial_trade_resources(),
+    spawn(fun()->reconciliate_loop() end),
     
     {noreply, State};
 
@@ -617,6 +619,14 @@ format_status(_Opt, Status) ->
 %%% Internal functions
 %%%===================================================================
 
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% @end
+%%--------------------------------------------------------------------
+reconciliate_loop()->
+    timer:sleep(?ReconciliationInterval),
+    rpc:cast(node(),?MODULE,reconciliate,[]).
 
 %%--------------------------------------------------------------------
 %% @doc
