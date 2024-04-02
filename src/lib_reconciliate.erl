@@ -9,6 +9,7 @@
 -module(lib_reconciliate).
    
 -include("controller.hrl").
+-include("log.api").
  
   
 %% API
@@ -45,7 +46,12 @@ start()->
 start_applications([])->
     ok;
 start_applications([ApplicationFileName|T])->
-    lib_controller:load_start(ApplicationFileName),
+    case rpc:call(node(),lib_controller,load_start,[ApplicationFileName],3*5000) of
+	{ok,_}->
+	     ?LOG_NOTICE("Started application with filename ",[ApplicationFileName]);
+	Error->
+	    ?LOG_WARNING("Failed to start application with filename ",[ApplicationFileName,Error])
+    end,
     timer:sleep(1000),
     start_applications(T).
 
@@ -53,6 +59,7 @@ stop_applications([])->
     ok;
 stop_applications([{WorkerNode,ApplicationFileName}|T])->
     lib_controller:stop_unload(WorkerNode,ApplicationFileName),
+    ?LOG_NOTICE("Stopped application with filename on Node ",[ApplicationFileName,WorkerNode]),
     timer:sleep(1000),
     stop_applications(T).
   
