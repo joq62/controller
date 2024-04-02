@@ -41,9 +41,9 @@ load_start(ApplicationFileName)->
     %% Get ApplicationId info , crash if doesnt exists
     
     
-    {ok,ApplicationIdPaths}=rd:call(catalog,get_application_paths,[ApplicationFileName],5000),
-    {ok,ApplicationIdApp}=rd:call(catalog,get_application_app,[ApplicationFileName],5000),
-    {ok,ApplicationName}=rd:call(catalog,get_application_name,[ApplicationFileName],5000),
+    {ok,ApplicationIdPaths}=rd:call(catalog,get_application_paths,[ApplicationFileName],3*5000),
+    {ok,ApplicationIdApp}=rd:call(catalog,get_application_app,[ApplicationFileName],3*5000),
+    {ok,ApplicationName}=rd:call(catalog,get_application_name,[ApplicationFileName],3*5000),
   
     %% Create new worker node
     {ok,WorkerInfo}=lib_worker_controller:create_worker(ApplicationName),
@@ -52,8 +52,8 @@ load_start(ApplicationFileName)->
     NodeName=maps:get(nodename,WorkerInfo),
     
     %% Load and start log
-    {ok,LogPaths}=rd:call(catalog,get_application_paths,["log.application"],5000),
-    {ok,LogApp}=rd:call(catalog,get_application_app,["log.application"],5000),
+    {ok,LogPaths}=rd:call(catalog,get_application_paths,["log.application"],3*5000),
+    {ok,LogApp}=rd:call(catalog,get_application_app,["log.application"],3*5000),
     [rpc:call(WorkerNode,code,add_patha,[Path],5000)||Path<-LogPaths],
     ok=rpc:call(WorkerNode,application,load,[LogApp],5000),
     ok=rpc:call(WorkerNode,application,start,[LogApp],5000),
@@ -70,8 +70,8 @@ load_start(ApplicationFileName)->
     
 
     %% Load and start resource discovery
-    {ok,RdPaths}=rd:call(catalog,get_application_paths,["resource_discovery.application"],5000),
-    {ok,RdApp}=rd:call(catalog,get_application_app,["resource_discovery.application"],5000),
+    {ok,RdPaths}=rd:call(catalog,get_application_paths,["resource_discovery.application"],3*5000),
+    {ok,RdApp}=rd:call(catalog,get_application_app,["resource_discovery.application"],3*5000),
     [rpc:call(WorkerNode,code,add_patha,[Path],5000)||Path<-RdPaths],
     ok=rpc:call(WorkerNode,application,load,[RdApp],5000),
     ok=rpc:call(WorkerNode,application,start,[RdApp],5000),
@@ -84,6 +84,7 @@ load_start(ApplicationFileName)->
     pong=rpc:call(WorkerNode,ApplicationIdApp,ping,[],5000),
     pong=net_adm:ping(WorkerNode),
     NodeId=maps:get(id,WorkerInfo),
+    io:format("WorkerNode ~p~n",[{WorkerNode,?MODULE,?FUNCTION_NAME,?LINE}]),
     DeploymentInfo=#{
 		     application_id=>ApplicationName,
 		     app=>ApplicationIdApp,
@@ -93,6 +94,7 @@ load_start(ApplicationFileName)->
 		     time=>{date(),time()},
 		     state=>started
 		    },
+    timer:sleep(1000),
     {ok,DeploymentInfo}.
     
     
@@ -103,12 +105,17 @@ load_start(ApplicationFileName)->
 %% @end
 %%--------------------------------------------------------------------
 stop_unload(ApplicationFileName)->
-    [{Node,_}|_]=[{Node,ApplicationFileName}||{Node,ApplicationFileName}<-lib_reconciliate:active_applications()],
+    io:format("nodes() ~p~n",[{nodes(),?FUNCTION_NAME,?MODULE,?LINE}]),
+    io:format("ApplicationFileName ~p~n",[{ApplicationFileName,?FUNCTION_NAME,?MODULE,?LINE}]),
+    [{Node,FileName}|_]=[{Node,FileName}||{Node,FileName}<-lib_reconciliate:active_applications(),
+				   FileName=:=ApplicationFileName],
+    io:format("Node to Stop and FileName ~p~n",[{Node,FileName,?FUNCTION_NAME,?MODULE,?LINE}]),
     App=rd:call(catalog,get_application_app,[ApplicationFileName],3*5000),
     rpc:call(Node,application,stop,[App],5000),
     rpc:call(Node,application,unload,[App],5000),
     slave:stop(Node),
     timer:sleep(1000),
+    io:format("nodes() ~p~n",[{nodes(),?FUNCTION_NAME,?MODULE,?LINE}]),
     ok.
     
 
@@ -144,7 +151,7 @@ nodedown(WorkerNode,DeploymentInfoList)->
     %% stop monitoring the node
     erlang:monitor_node(WorkerNode,false),
     slave:stop(WorkerNode),
-    ApplicationId=maps:get(application_id,DeploymentInfo),
+    ApplicationId=maps:get(glurk,DeploymentInfo),
     UpdatedDeploymentInfoList=case maps:get(state,DeploymentInfo) of
 				  delete->
 				    %  io:format("delete ~p~n",[{?MODULE,?FUNCTION_NAME,?LINE,WorkerNode,ApplicationId}]),

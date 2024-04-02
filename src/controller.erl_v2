@@ -612,9 +612,48 @@ handle_cast(UnMatchedSignal, State) ->
 
 
 handle_info({nodedown,Node}, State) ->
-    io:format("nodedown,Node  ~p~n",[{Node,?MODULE,?LINE}]),
-   
-    {noreply, State};
+%    io:format("nodedown,Node  ~p~n",[{Node,?MODULE,?LINE}]),
+    ?LOG_NOTICE("nodedown ",[Node]),
+    DeploymentInfoList=State#state.deployment_info,
+    Result=try lib_controller:nodedown(Node,DeploymentInfoList) of
+	       {ok,R}->
+		   {ok,R};
+	       {error,Reason}->
+		   {error,Reason}
+	   catch
+	       Event:Reason:Stacktrace ->
+		   {Event,Reason,Stacktrace,?MODULE,?LINE}
+	   end,
+    case Result of
+	{ok,UpdatedDeploymentInfoList}->
+%	    io:format("UpdatedDeploymentInfoList ~p~n",[{UpdatedDeploymentInfoList,?MODULE,?LINE}]),
+	    NewState=State#state{deployment_info=UpdatedDeploymentInfoList},
+	    ok;
+	ErrorEvent->
+	    ?LOG_ALERT("Error ",[ErrorEvent]),
+	    R2=[DeploymentInfo||DeploymentInfo<-DeploymentInfoList,
+			       Node==maps:get(node,DeploymentInfo)],
+	    case R2 of
+		[]->
+		     NewState=State;
+		[DeploymentInfo]->
+		    ApplicationId=maps:get(application_id,DeploymentInfo),
+		    DeploymentInfo=#{
+				     application_id=>ApplicationId,
+				     app=>na,
+				     node=>na,
+				     nodename=>na,
+				     node_id=>na,
+				     time=>na,
+				     state=>scheduled
+				    },
+		    NewState=State#state{deployment_info=[DeploymentInfo|State#state.deployment_info]};
+		_ ->
+		    NewState=State
+			
+	    end
+    end,
+    {noreply, NewState};
 
 
 handle_info(timeout, State) ->

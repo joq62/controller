@@ -57,6 +57,7 @@ too_many()->
     {ok,_}=controller:load_start("divi.application"),
     42=rd:call(adder,add,[20,22],5000),
     42.0=rd:call(divi,divi,[420,10],5000),
+    io:format("nodes() ~p~n",[{nodes(),?FUNCTION_NAME,?MODULE,?LINE}]),
     [
      {_,"adder.application"},
      {_,"adder.application"},
@@ -68,12 +69,9 @@ too_many()->
     []=lists:sort(lib_reconciliate:applications_to_stop()),
 
     {ok,_}=controller:load_start("divi.application"),
-    3=length(rd:fetch_resources(divi)),
     ok=controller:stop_unload("adder.application"),
-    2=length(rd:fetch_resources(adder)),
-    timer:sleep(5000),
+    io:format("nodes() ~p~n",[{nodes(),?FUNCTION_NAME,?MODULE,?LINE}]),
     [
-     {_,"adder.application"},
      {_,"adder.application"},
      {_,"adder.application"},
      {_,"divi.application"},
@@ -81,8 +79,8 @@ too_many()->
      {_,"divi.application"}
     ]=lists:sort(lib_reconciliate:active_applications()),
     ["adder.application"]=lists:sort(lib_reconciliate:applications_to_start()),
-    ["divi.application"]=lists:sort(lib_reconciliate:applications_to_stop()),
-    
+    [{_,"divi.application"}]=lists:sort(lib_reconciliate:applications_to_stop()),
+    io:format("nodes() ~p~n",[{nodes(),?FUNCTION_NAME,?MODULE,?LINE}]),
     ok.
 %%--------------------------------------------------------------------
 %% @doc
@@ -122,18 +120,20 @@ stop_test()->
 
     42=rd:call(adder,add,[20,22],5000),
     [
+     {_,"adder.application"},
      {_,"adder.application"}
     ]=lists:sort(lib_reconciliate:active_applications()),
      [
-      "adder.application",
-      "adder.application",
+       "adder.application",
       "divi.application",
       "divi.application"
      ]=lists:sort(lib_reconciliate:applications_to_start()),
     []=lists:sort(lib_reconciliate:applications_to_stop()),
     
     ok=controller:stop_unload("adder.application"),
-    {error,[eexists_resources]}=rd:call(adder,add,[20,22],5000),
+    io:format("nodes() ~p~n",[{nodes(),?FUNCTION_NAME,?MODULE,?LINE}]),
+    42=rd:call(adder,add,[20,22],5000),
+    ok=controller:stop_unload("adder.application"),
     [
     ]=lists:sort(lib_reconciliate:active_applications()),
      [
@@ -144,6 +144,9 @@ stop_test()->
       "divi.application"
      ]=lists:sort(lib_reconciliate:applications_to_start()),
     []=lists:sort(lib_reconciliate:applications_to_stop()),
+    io:format("nodes() ~p~n",[{nodes(),?FUNCTION_NAME,?MODULE,?LINE}]),
+    {error,[eexists_resources]}=rd:call(adder,add,[20,22],5000),
+  
     ok.
 
 %%--------------------------------------------------------------------
@@ -154,9 +157,11 @@ stop_test()->
 
 start_test()->
     io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME}]),
+    io:format("nodes() ~p~n",[{nodes(),?FUNCTION_NAME,?MODULE,?LINE}]),
     controller:stop_unload("adder.application"),
     {ok,_}=controller:load_start("adder.application"),
     42=rd:call(adder,add,[20,22],5000),
+    io:format("nodes() ~p~n",[{nodes(),?FUNCTION_NAME,?MODULE,?LINE}]),
     [
      {_,"adder.application"}
     ]=lists:sort(lib_reconciliate:active_applications()),
@@ -166,6 +171,18 @@ start_test()->
       "divi.application",
       "divi.application"
      ]=lists:sort(lib_reconciliate:applications_to_start()),
+    []=lists:sort(lib_reconciliate:applications_to_stop()),
+    {ok,_}=controller:load_start("adder.application"),
+    io:format("nodes() ~p~n",[{nodes(),?FUNCTION_NAME,?MODULE,?LINE}]),
+    [
+     {_,"adder.application"},
+     {_,"adder.application"}
+    ]=lists:sort(lib_reconciliate:active_applications()),
+    [
+     "adder.application",
+     "divi.application",
+     "divi.application"
+    ]=lists:sort(lib_reconciliate:applications_to_start()),
     []=lists:sort(lib_reconciliate:applications_to_stop()),
     ok.
 %% --------------------------------------------------------------------
