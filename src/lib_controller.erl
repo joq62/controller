@@ -15,6 +15,7 @@
 -export([
 	 load_start/1,
 	 stop_unload/1,
+	 stop_unload/2,
 
 	 deploy_application/1,
 	 remove_application/1,
@@ -84,7 +85,6 @@ load_start(ApplicationFileName)->
     pong=rpc:call(WorkerNode,ApplicationIdApp,ping,[],5000),
     pong=net_adm:ping(WorkerNode),
     NodeId=maps:get(id,WorkerInfo),
-    io:format("WorkerNode ~p~n",[{WorkerNode,?MODULE,?FUNCTION_NAME,?LINE}]),
     DeploymentInfo=#{
 		     application_id=>ApplicationName,
 		     app=>ApplicationIdApp,
@@ -104,39 +104,31 @@ load_start(ApplicationFileName)->
 %% 
 %% @end
 %%--------------------------------------------------------------------
+stop_unload(WorkerNode,ApplicationFileName)->
+    App=rd:call(catalog,get_application_app,[ApplicationFileName],3*5000),
+    rpc:call(WorkerNode,application,stop,[App],5000),
+    rpc:call(WorkerNode,application,unload,[App],5000),
+    slave:stop(WorkerNode),
+    timer:sleep(1000),
+    ok.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% 
+%% 
+%% @end
+%%--------------------------------------------------------------------
 stop_unload(ApplicationFileName)->
-    io:format("nodes() ~p~n",[{nodes(),?FUNCTION_NAME,?MODULE,?LINE}]),
-    io:format("ApplicationFileName ~p~n",[{ApplicationFileName,?FUNCTION_NAME,?MODULE,?LINE}]),
-    [{Node,FileName}|_]=[{Node,FileName}||{Node,FileName}<-lib_reconciliate:active_applications(),
+     [{Node,FileName}|_]=[{Node,FileName}||{Node,FileName}<-lib_reconciliate:active_applications(),
 				   FileName=:=ApplicationFileName],
-    io:format("Node to Stop and FileName ~p~n",[{Node,FileName,?FUNCTION_NAME,?MODULE,?LINE}]),
     App=rd:call(catalog,get_application_app,[ApplicationFileName],3*5000),
     rpc:call(Node,application,stop,[App],5000),
     rpc:call(Node,application,unload,[App],5000),
     slave:stop(Node),
     timer:sleep(1000),
-    io:format("nodes() ~p~n",[{nodes(),?FUNCTION_NAME,?MODULE,?LINE}]),
     ok.
     
 
-find(AllNodeFileNames,ApplicationFileName)->
-    find(AllNodeFileNames,ApplicationFileName,false).
-
-find(_,_ApplicationFileName,{Node,FileName})->
-    {Node,FileName};
-find([],_ApplicationFileName,Found)->
-    Found;
-find([{Node,FileName}|T],ApplicationFileName,false)->
-    {ok,[Map]}=rd:call(catalog,read_file,[FileName],5000),
-     Acc=case maps:get(application_name,Map) of
-	     ApplicationFileName->
-		 {Node,FileName};
-	     _ ->
-		 false
-	 end,
-     
-     find(T,ApplicationFileName,Acc).
-	
 
 %%--------------------------------------------------------------------
 %% @doc

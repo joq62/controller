@@ -33,10 +33,7 @@ start()->
     io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME,?LINE}]),
     
     ok=setup(),
-%    ok=init_test(),
-    ok=controller_test:start(),
- %   ok=reconciliate_test:start(),
- %   ok=destructive_test:start(),
+    ok=loop([]),
     io:format("Test OK !!! ~p~n",[?MODULE]),
 %    timer:sleep(1000),
 %    init:stop(),
@@ -54,25 +51,16 @@ start()->
 %% Description: Based on hosts.config file checks which hosts are avaible
 %% Returns: List({HostId,Ip,SshPort,Uid,Pwd}
 %% --------------------------------------------------------------------
-init_test()->
-    io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME}]),
-    [
-     "adder.application",
-     "adder.application",
-     "adder.application",
-     "divi.application",
-     "divi.application"
-    ]=lists:sort(lib_reconciliate:wanted_applications()),
-    []=lib_reconciliate:active_applications(),
-     [
-     "adder.application",
-     "adder.application",
-     "adder.application",
-     "divi.application",
-     "divi.application"
-    ]=lists:sort(lib_reconciliate:applications_to_start()),
-    []=lists:sort(lib_reconciliate:applications_to_stop()),
-    ok.
+loop(State)->
+    ActiveApplications=lists:sort(lib_reconciliate:active_applications()),
+    if
+	ActiveApplications=/=State->
+%	    io:format("ActiveApplications ~p~n",[{ActiveApplications,?MODULE,?LINE}]),
+	    NewState=ActiveApplications;
+	true->
+	    NewState=State
+    end,
+    loop(NewState).
 
 
 %% --------------------------------------------------------------------
@@ -106,15 +94,4 @@ setup()->
     [rd:add_target_resource_type(TargetType)||TargetType<-[log,rd,catalog,deployment,adder,divi]],
     rd:trade_resources(),
     timer:sleep(3000),
-    [
-     {catalog,{catalog,'controller_a@c50'}},
-     {deployment,{deployment,'controller_a@c50'}},
-     {git_handler,{git_handler,'controller_a@c50'}}
-    ]=lists:sort(rd:get_all_resources()),
-
-  %  ok=deployment:update_repo_dir(?DeploymentRepoDir),
-  %  ok=deployment:update_git_path(?DeploymentGit),
-
-  %  timer:sleep(3000),
-    
     ok.

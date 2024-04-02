@@ -1,7 +1,7 @@
 -define(CatalogEbin,"catalog/catalog/ebin").
 -define(SpecsEbin,"specs/specs/ebin").
 
--define(ReconciliationInterval,10*1000).
+-define(ReconciliationInterval,60*1000).
 
 %%---------- Log
 -define(MainLogDir,"logs").
