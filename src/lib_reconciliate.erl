@@ -35,6 +35,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start()->
+    io:format("not implemented ~p~n",[{"lib_controller:connect_to_other_hosts()",?MODULE,?LINE}]),
     ApplicationFileNamesToStart=applications_to_start(),
     start_applications(ApplicationFileNamesToStart),
     ApplicationFileNamesToStop=applications_to_stop(),

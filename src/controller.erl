@@ -287,18 +287,19 @@ handle_cast(UnMatchedSignal, State) ->
 	  {noreply, NewState :: term(), hibernate} |
 	  {stop, Reason :: normal | term(), NewState :: term()}.
 
-
 handle_info({nodedown,Node}, State) ->
-    io:format("nodedown,Node  ~p~n",[{Node,?MODULE,?LINE}]),
-   
+    ?LOG_WARNING("nodedown,Node ",[Node]),
+    
     {noreply, State};
 
 
 handle_info(timeout, State) ->
 %    io:format("timeout State ~p~n",[{State,?MODULE,?LINE}]),
+    io:format("not implemented ~p~n",[{"lib_controller:connect_to_other_hosts()",?MODULE,?LINE}]),
+   %% lib_controller:connect_to_other_hosts(),
+
     ok=initial_trade_resources(),
     spawn(fun()->lib_reconciliate:start() end),
-%    spawn(fun()->reconciliate_loop() end),
     
     {noreply, State};
 
