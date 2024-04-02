@@ -9,3 +9,10 @@
 -define(LogFile,"test_logfile").
 -define(MaxNumFiles,10).
 -define(MaxNumBytes,100000).
+
+-define(InfraApplicationFileNames,
+	["catalog.application",
+	 "controller.application",
+	 "deployment.application",
+	 "log.application",
+	 "resource_discovery.application"]).

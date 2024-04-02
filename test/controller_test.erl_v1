@@ -27,13 +27,10 @@ start()->
     io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME,?LINE}]),
     
     ok=setup(),
-    ok=init_test(),
-    ok=start_test(),
-    ok=stop_test(),
-    ok=too_many(),
-  %  ok=add_load_start_delete_stop_unload(),
-  %  ok=check_monitoring(),
-  %  ok=deploy_remove_normal(),
+    ok=add_delete(),
+    ok=add_load_start_delete_stop_unload(),
+    ok=check_monitoring(),
+    ok=deploy_remove_normal(),
 
     io:format("Test OK !!! ~p~n",[?MODULE]),
   %  timer:sleep(1000),
@@ -41,133 +38,6 @@ start()->
     ok.
 
 
-%%--------------------------------------------------------------------
-%% @doc
-%% 
-%% @end
-%%--------------------------------------------------------------------
-
-too_many()->
-    io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME}]),
-    
-    {ok,_}=controller:load_start("adder.application"),
-    {ok,_}=controller:load_start("adder.application"),
-    {ok,_}=controller:load_start("adder.application"),
-    {ok,_}=controller:load_start("divi.application"),
-    {ok,_}=controller:load_start("divi.application"),
-    42=rd:call(adder,add,[20,22],5000),
-    42.0=rd:call(divi,divi,[420,10],5000),
-    [
-     {_,"adder.application"},
-     {_,"adder.application"},
-     {_,"adder.application"},
-     {_,"divi.application"},
-     {_,"divi.application"}
-    ]=lists:sort(lib_reconciliate:active_applications()),
-    []=lists:sort(lib_reconciliate:applications_to_start()),
-    []=lists:sort(lib_reconciliate:applications_to_stop()),
-
-    {ok,_}=controller:load_start("divi.application"),
-    3=length(rd:fetch_resources(divi)),
-    ok=controller:stop_unload("adder.application"),
-    2=length(rd:fetch_resources(adder)),
-    timer:sleep(5000),
-    [
-     {_,"adder.application"},
-     {_,"adder.application"},
-     {_,"adder.application"},
-     {_,"divi.application"},
-     {_,"divi.application"},
-     {_,"divi.application"}
-    ]=lists:sort(lib_reconciliate:active_applications()),
-    ["adder.application"]=lists:sort(lib_reconciliate:applications_to_start()),
-    ["divi.application"]=lists:sort(lib_reconciliate:applications_to_stop()),
-    
-    ok.
-%%--------------------------------------------------------------------
-%% @doc
-%% 
-%% @end
-%%--------------------------------------------------------------------
-
-init_test()->
-    io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME}]),
-    ["adder.application",
-     "adder.application",
-     "adder.application",
-     "divi.application",
-     "divi.application"
-    ]=lists:sort(lib_reconciliate:wanted_applications()),
-    [
-     
-    ]=lib_reconciliate:active_applications(),
-     [
-     "adder.application",
-     "adder.application",
-     "adder.application",
-     "divi.application",
-     "divi.application"
-    ]=lists:sort(lib_reconciliate:applications_to_start()),
-    []=lists:sort(lib_reconciliate:applications_to_stop()),
-    ok.
-
-%%--------------------------------------------------------------------
-%% @doc
-%% 
-%% @end
-%%--------------------------------------------------------------------
-
-stop_test()->
-    io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME}]),
-
-    42=rd:call(adder,add,[20,22],5000),
-    [
-     {_,"adder.application"}
-    ]=lists:sort(lib_reconciliate:active_applications()),
-     [
-      "adder.application",
-      "adder.application",
-      "divi.application",
-      "divi.application"
-     ]=lists:sort(lib_reconciliate:applications_to_start()),
-    []=lists:sort(lib_reconciliate:applications_to_stop()),
-    
-    ok=controller:stop_unload("adder.application"),
-    {error,[eexists_resources]}=rd:call(adder,add,[20,22],5000),
-    [
-    ]=lists:sort(lib_reconciliate:active_applications()),
-     [
-      "adder.application",
-      "adder.application",
-      "adder.application",
-      "divi.application",
-      "divi.application"
-     ]=lists:sort(lib_reconciliate:applications_to_start()),
-    []=lists:sort(lib_reconciliate:applications_to_stop()),
-    ok.
-
-%%--------------------------------------------------------------------
-%% @doc
-%% 
-%% @end
-%%--------------------------------------------------------------------
-
-start_test()->
-    io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME}]),
-    controller:stop_unload("adder.application"),
-    {ok,_}=controller:load_start("adder.application"),
-    42=rd:call(adder,add,[20,22],5000),
-    [
-     {_,"adder.application"}
-    ]=lists:sort(lib_reconciliate:active_applications()),
-     [
-      "adder.application",
-      "adder.application",
-      "divi.application",
-      "divi.application"
-     ]=lists:sort(lib_reconciliate:applications_to_start()),
-    []=lists:sort(lib_reconciliate:applications_to_stop()),
-    ok.
 %% --------------------------------------------------------------------
 %% Function: available_hosts()
 %% Description: Based on hosts.config file checks which hosts are avaible

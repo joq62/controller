@@ -8,7 +8,7 @@
 %%%-------------------------------------------------------------------
 -module(lib_reconciliate).
    
--include("controller.hrl").
+
  
   
 %% API
@@ -17,10 +17,6 @@
 	]).
 
 -export([
-	 wanted_applications/0,
-	 active_applications/0,
-	 applications_to_start/0,
-	 applications_to_stop/0
 
 	]).
 
@@ -58,145 +54,6 @@ start(DeploymentInfoList)->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-
-%%--------------------------------------------------------------------
-%% @doc
-%% 
-%% @end
-%%--------------------------------------------------------------------
-applications_to_stop()->
-    WantedApplications=wanted_applications(),
-    ActiveApplications=active_applications(),
-    applications_to_stop(WantedApplications,ActiveApplications).
-
-applications_to_stop([],[])->
-    [];
-applications_to_stop(WantedApplications,[])->
-    [];
-applications_to_stop([],ActiveApplications)->
-    ActiveApplications;
-applications_to_stop([WantedApplicationFile|T],ActiveApplications)->
-    case lists:keyfind(WantedApplicationFile,2,ActiveApplications) of
-	{WorkerNode,FileName}->
-	    NewActiveApplications=lists:delete(	{WorkerNode,FileName},ActiveApplications);
-	false ->
-	    NewActiveApplications=ActiveApplications
-    end,
-    applications_to_stop(T,NewActiveApplications).
-
-
-%%--------------------------------------------------------------------
-%% @doc
-%% 
-%% @end
-%%--------------------------------------------------------------------
-applications_to_start()->
-    WantedApplications=wanted_applications(),
-    ActiveApplications=active_applications(),
-    applications_to_start(WantedApplications,ActiveApplications).
-
-applications_to_start(WantedApplications,ActiveApplications)->
-    applications_to_start(WantedApplications,ActiveApplications,[]).
-
-applications_to_start([],_ActiveApplications,Acc)->
-    Acc;
-applications_to_start([WantedApplicationFile|T],ActiveApplications,Acc)->
-    case lists:keyfind(WantedApplicationFile,2,ActiveApplications) of
-	{WorkerNode,FileName}->
-	    NewActiveApplications=lists:delete(	{WorkerNode,FileName},ActiveApplications),
-	    NewAcc=Acc;
-	false ->
-	    NewActiveApplications=ActiveApplications,
-	    NewAcc=[WantedApplicationFile|Acc]
-    end,
-    applications_to_start(T,NewActiveApplications,NewAcc).
-
-%%--------------------------------------------------------------------
-%% @doc
-%% 
-%% @end
-%%--------------------------------------------------------------------
-wanted_applications()->
-    {ok,FileNames}=rd:call(deployment,all_filenames,[],3*5000),
-    get_wanted_applications(FileNames).
-
-get_wanted_applications(FileNames)->
-    get_wanted_applications(FileNames,[]).
-
-get_wanted_applications([],Acc)->
-    Acc;
-get_wanted_applications([FileName|T],Acc)->
-    {ok,[Map]}=rd:call(deployment,read_file,[FileName],3*5000),
-    {ok,HostName}=net:gethostname(),
-    R=[ApplicationFileName||{ApplicationFileName,WantedHostName}<-maps:get(deployments,Map),
-		      HostName==WantedHostName],
-    NewAcc=lists:append(R,Acc),
-    get_wanted_applications(T,NewAcc).
-
-%%--------------------------------------------------------------------
-%% @doc
-%% 
-%% @end
-%%--------------------------------------------------------------------
-active_applications()->
-    ActiveNodes=get_active_workers(),
-    AllApps=all_apps(),
-    node_filenames(ActiveNodes,AllApps).
-    
-node_filenames(ActiveNodes,AllApps)->   
-    node_filenames(ActiveNodes,AllApps,[]).
-node_filenames([],_AllApps,Acc)->
-    Acc;
-node_filenames([WorkerNode|T],AllApps,Acc)->
-    ApplicationInfo=rpc:call(WorkerNode,application,which_applications,[],5000),
-    NodeFileNames=check_apps(ApplicationInfo,WorkerNode,AllApps),
-    NewAcc=lists:append(NodeFileNames,Acc),
-    node_filenames(T,AllApps,NewAcc).
-
-
-check_apps(ApplicationInfo,WorkerNode,AllApps)->
-    check_apps(ApplicationInfo,WorkerNode,AllApps,[]).
-
-check_apps([],_,_,Acc)->
-    Acc;
-check_apps([{App,_,_}|T],WorkerNode,AllApps,Acc)->
-    NewAcc=case lists:member(App,AllApps) of
-	       false->
-		   Acc;
-	       true ->
-		   {ok,FileName}=rd:call(catalog,which_filename,[App],3*5000),
-		   [{WorkerNode,FileName}|Acc]
-	   end,
-    check_apps(T,WorkerNode,AllApps,NewAcc).
-				
-all_apps()->
-    {ok,FileNames}=rd:call(catalog,all_filenames,[],3*5000),
-    all_apps(FileNames).
-all_apps(FileNames)->
-    all_apps(FileNames,[]).		
-all_apps([],Acc)->	   
-    Acc;
-all_apps([FileName|T],Acc) ->
-    NewAcc=case lists:member(FileName,?InfraApplicationFileNames) of
-	       false->
-		   {ok,[Map]}=rd:call(catalog,read_file,[FileName],3*5000),
-		   App=maps:get(app,Map),
-		   [App|Acc];
-	       true->
-		   Acc
-	   end,
-    all_apps(T,NewAcc).
-
-%%--------------------------------------------------------------------
-%% @doc
-%% 
-%% @end
-%%--------------------------------------------------------------------
-get_active_workers()->
-    {ok,ThisHostName}=net:gethostname(),
-    ActiveWorkerNodesOnThisHost=[Node||Node<-[node()|nodes()],
-				 {ok,ThisHostName}==rpc:call(Node,net,gethostname,[],5000)],
-    ActiveWorkerNodesOnThisHost.
 
 
 %%--------------------------------------------------------------------
@@ -242,6 +99,7 @@ remove_applications(DeploymentInfoList)->
 remove_applications([],UpdatedDeploymentInfoList)->
     UpdatedDeploymentInfoList;
 remove_applications([DeploymentInfo|T],Acc)->
+    ApplicationId=maps:get(application_id,DeploymentInfo),
     NewAcc=case maps:get(state,DeploymentInfo) of
 	       started->
 		   [DeploymentInfo|Acc];
@@ -285,6 +143,16 @@ get_applications([WorkerNode|T],AllApplicationIds,Acc)->
 		   lists:append(NodeApplicationApp,Acc)
 	   end,
     get_applications(T,AllApplicationIds,NewAcc).
+%%--------------------------------------------------------------------
+%% @doc
+%% 
+%% @end
+%%--------------------------------------------------------------------
+get_active_workers()->
+    {ok,ThisHostName}=net:gethostname(),
+    ActiveWorkerNodesOnThisHost=[Node||{Node,HostName}<-[node()|nodes()],
+				 ThisHostName==HostName],
+    ActiveWorkerNodesOnThisHost.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -325,12 +193,12 @@ get_applications_to_stop(ActiveApplicationsAndNodes,[])->
     UpdateDeploymentInfoList;
 
 get_applications_to_stop(ActiveApplicationsAndNodes,DeploymentInfoList)->
-    xapplications_to_stop(ActiveApplicationsAndNodes,DeploymentInfoList).
+    applications_to_stop(ActiveApplicationsAndNodes,DeploymentInfoList).
 
-xapplications_to_stop([],UpdatedDeploymentInfoList)->
+applications_to_stop([],UpdatedDeploymentInfoList)->
     UpdatedDeploymentInfoList;									
   
-xapplications_to_stop([{WorkerNode,ApplicationId,App}|T],DeploymentInfoList)->
+applications_to_stop([{WorkerNode,ApplicationId,App}|T],DeploymentInfoList)->
     R=[ApplicationId||DeploymentInfo<-DeploymentInfoList,
 		      ApplicationId=/=maps:get(application_id,DeploymentInfo),
 		      WorkerNode=/=maps:get(node,DeploymentInfo)],
@@ -349,7 +217,7 @@ xapplications_to_stop([{WorkerNode,ApplicationId,App}|T],DeploymentInfoList)->
 						     },
 				     [DeploymentInfo|DeploymentInfoList]
 			     end,
-    xapplications_to_stop(T,UpdateDeploymentInfoList).
+    applications_to_stop(T,UpdateDeploymentInfoList).
 %%--------------------------------------------------------------------
 %% @doc
 %% 

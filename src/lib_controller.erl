@@ -13,6 +13,9 @@
   
 %% API
 -export([
+	 load_start/1,
+	 stop_unload/1,
+
 	 deploy_application/1,
 	 remove_application/1,
 	 remove_application/2,
@@ -28,6 +31,105 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
+%%--------------------------------------------------------------------
+%% @doc
+%% 
+%% 
+%% @end
+%%--------------------------------------------------------------------
+load_start(ApplicationFileName)->
+    %% Get ApplicationId info , crash if doesnt exists
+    
+    
+    {ok,ApplicationIdPaths}=rd:call(catalog,get_application_paths,[ApplicationFileName],5000),
+    {ok,ApplicationIdApp}=rd:call(catalog,get_application_app,[ApplicationFileName],5000),
+    {ok,ApplicationName}=rd:call(catalog,get_application_name,[ApplicationFileName],5000),
+  
+    %% Create new worker node
+    {ok,WorkerInfo}=lib_worker_controller:create_worker(ApplicationName),
+
+    WorkerNode=maps:get(node,WorkerInfo),
+    NodeName=maps:get(nodename,WorkerInfo),
+    
+    %% Load and start log
+    {ok,LogPaths}=rd:call(catalog,get_application_paths,["log.application"],5000),
+    {ok,LogApp}=rd:call(catalog,get_application_app,["log.application"],5000),
+    [rpc:call(WorkerNode,code,add_patha,[Path],5000)||Path<-LogPaths],
+    ok=rpc:call(WorkerNode,application,load,[LogApp],5000),
+    ok=rpc:call(WorkerNode,application,start,[LogApp],5000),
+    pong=rpc:call(WorkerNode,LogApp,ping,[],5000),
+    % Add where to store log information 
+    case filelib:is_dir(?MainLogDir) of
+	false->
+	    ok=file:make_dir(?MainLogDir);
+	true->
+	    no_action
+    end,
+    NodeNodeLogDir=filename:join(?MainLogDir,NodeName),
+    ok=rpc:call(WorkerNode,log,create_logger,[NodeNodeLogDir,?LocalLogDir,?LogFile,?MaxNumFiles,?MaxNumBytes],5000),
+    
+
+    %% Load and start resource discovery
+    {ok,RdPaths}=rd:call(catalog,get_application_paths,["resource_discovery.application"],5000),
+    {ok,RdApp}=rd:call(catalog,get_application_app,["resource_discovery.application"],5000),
+    [rpc:call(WorkerNode,code,add_patha,[Path],5000)||Path<-RdPaths],
+    ok=rpc:call(WorkerNode,application,load,[RdApp],5000),
+    ok=rpc:call(WorkerNode,application,start,[RdApp],5000),
+    pong=rpc:call(WorkerNode,RdApp,ping,[],5000),
+    
+    %% Load and start ApplicationId and start as permanent so if it crashes the node crashes
+    [rpc:call(WorkerNode,code,add_patha,[Path],5000)||Path<-ApplicationIdPaths],
+    ok=rpc:call(WorkerNode,application,load,[ApplicationIdApp],5000),
+    ok=rpc:call(WorkerNode,application,start,[ApplicationIdApp,permanent],5000),
+    pong=rpc:call(WorkerNode,ApplicationIdApp,ping,[],5000),
+    pong=net_adm:ping(WorkerNode),
+    NodeId=maps:get(id,WorkerInfo),
+    DeploymentInfo=#{
+		     application_id=>ApplicationName,
+		     app=>ApplicationIdApp,
+		     node=>WorkerNode,
+		     nodename=>NodeName,
+		     node_id=>NodeId,
+		     time=>{date(),time()},
+		     state=>started
+		    },
+    {ok,DeploymentInfo}.
+    
+    
+%%--------------------------------------------------------------------
+%% @doc
+%% 
+%% 
+%% @end
+%%--------------------------------------------------------------------
+stop_unload(ApplicationFileName)->
+    [{Node,_}|_]=[{Node,ApplicationFileName}||{Node,ApplicationFileName}<-lib_reconciliate:active_applications()],
+    App=rd:call(catalog,get_application_app,[ApplicationFileName],3*5000),
+    rpc:call(Node,application,stop,[App],5000),
+    rpc:call(Node,application,unload,[App],5000),
+    slave:stop(Node),
+    timer:sleep(1000),
+    ok.
+    
+
+find(AllNodeFileNames,ApplicationFileName)->
+    find(AllNodeFileNames,ApplicationFileName,false).
+
+find(_,_ApplicationFileName,{Node,FileName})->
+    {Node,FileName};
+find([],_ApplicationFileName,Found)->
+    Found;
+find([{Node,FileName}|T],ApplicationFileName,false)->
+    {ok,[Map]}=rd:call(catalog,read_file,[FileName],5000),
+     Acc=case maps:get(application_name,Map) of
+	     ApplicationFileName->
+		 {Node,FileName};
+	     _ ->
+		 false
+	 end,
+     
+     find(T,ApplicationFileName,Acc).
+	
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -90,8 +192,8 @@ deploy_application(ApplicationId)->
     NodeName=maps:get(nodename,WorkerInfo),
     
     %% Load and start log
-    {ok,LogPaths}=rd:call(catalog,get_application_paths,["log"],5000),
-    {ok,LogApp}=rd:call(catalog,get_application_app,["log"],5000),
+    {ok,LogPaths}=rd:call(catalog,get_application_paths,["log.application"],5000),
+    {ok,LogApp}=rd:call(catalog,get_application_app,["log.application"],5000),
     [rpc:call(WorkerNode,code,add_patha,[Path],5000)||Path<-LogPaths],
     ok=rpc:call(WorkerNode,application,load,[LogApp],5000),
     ok=rpc:call(WorkerNode,application,start,[LogApp],5000),
@@ -164,7 +266,7 @@ remove_application(ApplicationId,DeploymentInfoList)->
 		    ok=rpc:call(WorkerNode,application,unload,[RdApp],5000),
 		    
 		    %% stop log
-		    {ok,LogApp}=rd:call(catalog,get_application_app,["log"],5000),
+		    {ok,LogApp}=rd:call(catalog,get_application_app,["log.application"],5000),
 		    ok=rpc:call(WorkerNode,application,stop,[LogApp],5000),
 		    ok=rpc:call(WorkerNode,application,unload,[LogApp],5000),
 		    
@@ -210,7 +312,7 @@ remove_application(DeploymentInfo)->
 		    ok=rpc:call(WorkerNode,application,unload,[RdApp],5000),
 		    
 		    %% stop log
-		    {ok,LogApp}=rd:call(catalog,get_application_app,["log"],5000),
+		    {ok,LogApp}=rd:call(catalog,get_application_app,["log.application"],5000),
 		    ok=rpc:call(WorkerNode,application,stop,[LogApp],5000),
 		    ok=rpc:call(WorkerNode,application,unload,[LogApp],5000),
 		    
