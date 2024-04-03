@@ -1,3 +1,4 @@
 %% encoding: UTF-8
 {application,controller}.
-{modules,[controller,controller_app,controller_sup,lib_reconciliate]}.
+{modules,[controller,controller_app,controller_sup,lib_controller,
+          lib_reconciliate,lib_worker_controller]}.
